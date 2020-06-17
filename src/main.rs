@@ -1,8 +1,12 @@
 use sdl2::{event::Event, keyboard::Keycode, pixels::Color, render::RendererBuilder};
 
-use sdl2_image::{self as image, LoadTexture, INIT_PNG};
+use sdl2_image::{self as image, INIT_PNG};
 
 use std::{env::current_dir, thread, time::Duration};
+
+mod sprite;
+
+mod utils;
 
 fn main() {
     println!("Hello, world!");
@@ -25,7 +29,7 @@ fn main() {
 
     let mut app_dir = current_dir().unwrap();
     app_dir.push("assets/sprite_sheet.png");
-    let sprite_sheet = canvas.load_texture(&app_dir).unwrap();
+    let sprites = sprite::load_grid_sprite_sheet(&canvas, app_dir, 32).unwrap();
 
     canvas.set_draw_color(Color::RGB(0, 250, 250));
     canvas.clear();
@@ -37,9 +41,9 @@ fn main() {
         i = (i + 1) % 255;
         canvas.set_draw_color(Color::RGB(i, 64, 255 - i));
         canvas.clear();
-        canvas.copy(&sprite_sheet, None, None).unwrap();
+        sprites[1].draw_on(&mut canvas, None).unwrap();
 
-        for event in events.poll_iter() {
+        while let Some(event) = events.poll_event() {
             match event {
                 Event::Quit { .. }
                 | Event::KeyDown {
@@ -53,4 +57,6 @@ fn main() {
         canvas.present();
         thread::sleep(Duration::new(0, 1_000_000_000 / 60));
     }
+
+    println!("Shutting down");
 }
