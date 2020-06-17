@@ -1,6 +1,8 @@
-use sdl2::{event::Event, keyboard::Keycode, pixels::Color};
+use sdl2::{event::Event, keyboard::Keycode, pixels::Color, render::RendererBuilder};
 
-use std::{thread, time::Duration};
+use sdl2_image::{self as image, LoadTexture, INIT_PNG};
+
+use std::{env::current_dir, thread, time::Duration};
 
 fn main() {
     println!("Hello, world!");
@@ -14,7 +16,16 @@ fn main() {
         .build()
         .unwrap();
 
-    let mut canvas = window.into_canvas().build().unwrap();
+    let mut canvas = RendererBuilder::new(window)
+        .present_vsync()
+        .build()
+        .unwrap();
+
+    let _image_context = image::init(INIT_PNG).unwrap();
+
+    let mut app_dir = current_dir().unwrap();
+    app_dir.push("assets/sprite_sheet.png");
+    let sprite_sheet = canvas.load_texture(&app_dir).unwrap();
 
     canvas.set_draw_color(Color::RGB(0, 250, 250));
     canvas.clear();
@@ -26,6 +37,7 @@ fn main() {
         i = (i + 1) % 255;
         canvas.set_draw_color(Color::RGB(i, 64, 255 - i));
         canvas.clear();
+        canvas.copy(&sprite_sheet, None, None).unwrap();
 
         for event in events.poll_iter() {
             match event {
