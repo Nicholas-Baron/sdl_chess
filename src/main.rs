@@ -1,4 +1,10 @@
-use sdl2::{event::Event, keyboard::Keycode, pixels::Color, render::RendererBuilder};
+use sdl2::{
+    event::Event,
+    keyboard::Keycode,
+    pixels::Color,
+    rect::{Point, Rect},
+    render::RendererBuilder,
+};
 
 use sdl2_image::{self as image, INIT_PNG};
 
@@ -23,10 +29,7 @@ fn main() {
         .build()
         .unwrap();
 
-    let mut canvas = RendererBuilder::new(window)
-        .present_vsync()
-        .build()
-        .unwrap();
+    let mut canvas = window.renderer().present_vsync().build().unwrap();
 
     let _image_context = image::init(INIT_PNG).unwrap();
 
@@ -36,13 +39,19 @@ fn main() {
     let board = ChessBoard::new(sprites);
 
     canvas.set_draw_color(Color::RGB(0, 250, 250));
+    if let Err(e) = canvas.set_logical_size(800, 600) {
+        eprintln!("{}", e);
+    }
     canvas.clear();
     canvas.present();
 
     let mut events = sdl_context.event_pump().unwrap();
+    let mut board_center = Point::from(utils::map_tuple(canvas.logical_size(), |val| {
+        use std::convert::TryFrom;
+        i32::try_from(val / 2).unwrap()
+    }));
+
     'run_loop: loop {
-        canvas.clear();
-        board.draw_on(&mut canvas, None).unwrap();
 
         while let Some(event) = events.poll_event() {
             match event {
@@ -55,7 +64,10 @@ fn main() {
             }
         }
 
+        canvas.clear();
+        board.draw_on(&mut canvas, Some(board_center)).unwrap();
         canvas.present();
+
         thread::sleep(Duration::new(0, 1_000_000_000 / 60));
     }
 
