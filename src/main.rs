@@ -40,10 +40,7 @@ fn main() {
     canvas.present();
 
     let mut events = sdl_context.event_pump().unwrap();
-    let mut i = 0;
     'run_loop: loop {
-        i = (i + 1) % 255;
-        canvas.set_draw_color(Color::RGB(i, 64, 255 - i));
         canvas.clear();
         board.draw_on(&mut canvas, None).unwrap();
 
