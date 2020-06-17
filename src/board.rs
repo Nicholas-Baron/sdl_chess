@@ -52,6 +52,8 @@ impl ChessBoard {
                     match (piece, color) {
                         (Pawn, Black) => self.sprites[2].draw_on(dest, Some(rect))?,
                         (Pawn, White) => self.sprites[3].draw_on(dest, Some(rect))?,
+                        (Rook, Black) => self.sprites[4].draw_on(dest, Some(rect))?,
+                        (Rook, White) => self.sprites[5].draw_on(dest, Some(rect))?,
                         _ => eprintln!("Unimplemented piece {:?} {:?}", piece, color),
                     }
                 }
