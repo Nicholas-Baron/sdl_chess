@@ -4,6 +4,9 @@ use sdl2_image::{self as image, INIT_PNG};
 
 use std::{env::current_dir, thread, time::Duration};
 
+mod board;
+use board::ChessBoard;
+
 mod sprite;
 
 mod utils;
@@ -30,6 +33,7 @@ fn main() {
     let mut app_dir = current_dir().unwrap();
     app_dir.push("assets/sprite_sheet.png");
     let sprites = sprite::load_grid_sprite_sheet(&canvas, app_dir, 32).unwrap();
+    let board = ChessBoard::new(sprites);
 
     canvas.set_draw_color(Color::RGB(0, 250, 250));
     canvas.clear();
@@ -41,7 +45,7 @@ fn main() {
         i = (i + 1) % 255;
         canvas.set_draw_color(Color::RGB(i, 64, 255 - i));
         canvas.clear();
-        sprites[1].draw_on(&mut canvas, None).unwrap();
+        board.draw_on(&mut canvas, None).unwrap();
 
         while let Some(event) = events.poll_event() {
             match event {

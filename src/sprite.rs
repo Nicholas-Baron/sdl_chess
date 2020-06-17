@@ -20,8 +20,8 @@ pub fn load_grid_sprite_sheet<Loader: LoadTexture, P: AsRef<Path>>(
 
     let mut sprites = vec![];
 
-    for x in (0..width).filter(|val| val % grid_size == 0) {
-        for y in (0..height).filter(|val| val % grid_size == 0) {
+    for y in (0..height).filter(|val| val % grid_size == 0) {
+        for x in (0..width).filter(|val| val % grid_size == 0) {
             let (x, y): (i32, i32) = utils::map_tuple((x, y), |val| val.try_into().unwrap());
             let rect: Rect = (x, y, grid_size, grid_size).into();
             sprites.push(Sprite::from_sheet(texture.clone(), rect)?);
