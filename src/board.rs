@@ -7,7 +7,7 @@ use sdl2::{
 
 use std::convert::{TryFrom, TryInto};
 
-use crate::{sprite::Sprite, utils};
+use crate::{drawable::Drawable, sprite::Sprite, utils};
 
 pub struct ChessBoard {
     board: Board,
@@ -23,8 +23,10 @@ impl ChessBoard {
             sprites,
         }
     }
+}
 
-    pub fn draw_on(&self, dest: &mut Renderer, center: Option<Point>) -> Result<(), String> {
+impl Drawable for ChessBoard {
+    fn draw_at(&self, dest: &mut Renderer, center: Point) -> Result<(), String> {
         for x in 0..NUM_FILES {
             for y in 0..NUM_RANKS {
                 let square = Square::make_square(Rank::from_index(y), File::from_index(x));
@@ -34,11 +36,9 @@ impl ChessBoard {
 
                 let (mut pixel_x, mut pixel_y) = utils::map_tuple((x, y), |val| val * tile_size);
 
-                if let Some(offset) = center {
-                    let board_size: i32 = i32::try_from(NUM_FILES).unwrap() * tile_size;
-                    pixel_x += offset.x() - board_size / 2;
-                    pixel_y += offset.y() - board_size / 2;
-                }
+                let board_size: i32 = i32::try_from(NUM_FILES).unwrap() * tile_size;
+                pixel_x += center.x() - board_size / 2;
+                pixel_y += center.y() - board_size / 2;
 
                 let rect = Rect::new(pixel_x, pixel_y, TILE_SIZE.into(), TILE_SIZE.into());
 
