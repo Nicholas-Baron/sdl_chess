@@ -41,8 +41,13 @@ impl ChessBoard {
             let tile_pos = (p + (half_board_size, half_board_size).into()) / TILE_SIZE.into();
             println!("Tile pos: {:?}", tile_pos);
 
-            let (tile_x, tile_y) =
-                utils::map_tuple(tile_pos.into(), |val| usize::try_from(val).unwrap());
+            // We calculate from the top left, however chess notation starts at the bottom left
+
+            let correct_x = -tile_pos.x() + 7;
+
+            let (tile_x, tile_y) = utils::map_tuple((correct_x, tile_pos.y()), |val| {
+                usize::try_from(val).unwrap()
+            });
 
             Some(Square::make_square(
                 Rank::from_index(tile_y),
@@ -65,8 +70,8 @@ impl Drawable for ChessBoard {
                 let square = Square::make_square(Rank::from_index(y), File::from_index(x));
 
                 let (x, y): (i32, _) = utils::map_tuple((x, y), |val| val.try_into().unwrap());
-                let tile_size: i32 = TILE_SIZE.into();
 
+                let tile_size: i32 = TILE_SIZE.into();
                 let (mut pixel_x, mut pixel_y) = utils::map_tuple((x, y), |val| val * tile_size);
 
                 let board_size = Self::board_size();
