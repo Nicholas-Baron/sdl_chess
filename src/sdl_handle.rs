@@ -22,6 +22,8 @@ pub struct SDLHandle {
     app_directory: PathBuf,
 }
 
+const CLEAR_COLOR: Color = Color::RGB(0, 250, 250);
+
 impl SDLHandle {
     pub fn init(
         window_title: &str,
@@ -43,10 +45,11 @@ impl SDLHandle {
             .build()
             .map_err(|e| format!("Error building canvas: {}", e))?;
 
-        canvas.set_draw_color(Color::RGB(0, 250, 250));
         if let Err(e) = canvas.set_logical_size(width, height) {
             eprintln!("{}", e);
         }
+
+        canvas.set_draw_color(CLEAR_COLOR);
         canvas.clear();
         canvas.present();
 
@@ -94,6 +97,7 @@ impl SDLHandle {
     }
 
     pub fn clear(&mut self) {
+        self.canvas.set_draw_color(CLEAR_COLOR);
         self.canvas.clear();
     }
 }
