@@ -1,4 +1,4 @@
-use sdl2::{event::Event, keyboard::Keycode, rect::Point};
+use sdl2::{event::Event, keyboard::Keycode, mouse::Mouse, rect::Point};
 
 use sdl2_image::INIT_PNG;
 
@@ -40,6 +40,17 @@ fn main() {
                     keycode: Some(Keycode::Escape),
                     ..
                 } => break 'run_loop,
+                Event::MouseButtonDown {
+                    mouse_btn: Mouse::Left,
+                    x,
+                    y,
+                    ..
+                } => {
+                    let in_board = board_center - (x, y).into();
+                    if let Some(square) = ChessBoard::tile_coord(in_board) {
+                        println!("{}", square);
+                    }
+                }
                 _ => {}
             }
         }

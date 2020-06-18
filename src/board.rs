@@ -23,6 +23,39 @@ impl ChessBoard {
             sprites,
         }
     }
+
+    /// Checks if the pixel position (relative to the center of the board) is inside the board
+    pub fn contains_from_center(p: Point) -> bool {
+        let (x, y) = p.into();
+        let half_board_size = Self::board_size() / 2;
+        x > -half_board_size && x < half_board_size && y > -half_board_size && y < half_board_size
+    }
+
+    /// Returns the square corresponding to the given point (relative from the center)
+    pub fn tile_coord(p: Point) -> Option<Square> {
+        if !Self::contains_from_center(p) {
+            None
+        } else {
+            let half_board_size = Self::board_size() / 2;
+
+            let tile_pos = (p + (half_board_size, half_board_size).into()) / TILE_SIZE.into();
+            println!("Tile pos: {:?}", tile_pos);
+
+            let (tile_x, tile_y) =
+                utils::map_tuple(tile_pos.into(), |val| usize::try_from(val).unwrap());
+
+            Some(Square::make_square(
+                Rank::from_index(tile_y),
+                File::from_index(tile_x),
+            ))
+        }
+    }
+
+    /// The board size in pixels
+    fn board_size() -> i32 {
+        let tile_size: i32 = TILE_SIZE.into();
+        i32::try_from(NUM_FILES).unwrap() * tile_size
+    }
 }
 
 impl Drawable for ChessBoard {
@@ -36,7 +69,7 @@ impl Drawable for ChessBoard {
 
                 let (mut pixel_x, mut pixel_y) = utils::map_tuple((x, y), |val| val * tile_size);
 
-                let board_size: i32 = i32::try_from(NUM_FILES).unwrap() * tile_size;
+                let board_size = Self::board_size();
                 pixel_x += center.x() - board_size / 2;
                 pixel_y += center.y() - board_size / 2;
 
@@ -60,7 +93,7 @@ impl Drawable for ChessBoard {
                         (Pawn, White) => self.sprites[3].draw_on(dest, rect)?,
                         (Rook, Black) => self.sprites[4].draw_on(dest, rect)?,
                         (Rook, White) => self.sprites[5].draw_on(dest, rect)?,
-                        _ => eprintln!("Unimplemented piece {:?} {:?}", piece, color),
+                        _ => {} // eprintln!("Unimplemented piece {:?} {:?}", piece, color),
                     }
                 }
             }
