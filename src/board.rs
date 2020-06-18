@@ -89,10 +89,10 @@ impl Drawable for ChessBoard {
                     use chess::Piece::*;
                     use Color::*;
                     match (piece, color) {
-                        (Pawn, Black) => self.sprites[2].draw_on(dest, rect)?,
-                        (Pawn, White) => self.sprites[3].draw_on(dest, rect)?,
-                        (Rook, Black) => self.sprites[4].draw_on(dest, rect)?,
-                        (Rook, White) => self.sprites[5].draw_on(dest, rect)?,
+                        (Pawn, White) => self.sprites[2].draw_on(dest, rect)?,
+                        (Pawn, Black) => self.sprites[3].draw_on(dest, rect)?,
+                        (Rook, White) => self.sprites[4].draw_on(dest, rect)?,
+                        (Rook, Black) => self.sprites[5].draw_on(dest, rect)?,
                         _ => {} // eprintln!("Unimplemented piece {:?} {:?}", piece, color),
                     }
                 }
