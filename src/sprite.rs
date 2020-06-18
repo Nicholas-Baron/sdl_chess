@@ -6,7 +6,7 @@ use sdl2_image::LoadTexture;
 
 use std::{convert::TryInto, path::Path, rc::Rc};
 
-use crate::utils;
+use crate::{drawable::Drawable, utils};
 
 /// Load an image as a spritesheet with a grid that starts on 0,0
 pub fn load_grid_sprite_sheet<Loader: LoadTexture, P: AsRef<Path>>(
@@ -54,9 +54,11 @@ impl Sprite {
             Ok(Sprite { sheet, mask: rect })
         }
     }
+}
 
-    pub fn draw_on(&self, dest: &mut Renderer, target_area: Option<Rect>) -> Result<(), String> {
-        dest.copy(&self.sheet, Some(self.mask), target_area)
+impl Drawable for Sprite {
+    fn draw_on(&self, dest: &mut Renderer, target_area: Rect) -> Result<(), String> {
+        dest.copy(&self.sheet, Some(self.mask), Some(target_area))
     }
 }
 
