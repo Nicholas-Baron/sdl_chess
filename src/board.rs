@@ -1,4 +1,4 @@
-use chess::{Board, Color, File, Rank, Square, NUM_FILES};
+use chess::{Board, Color, File, MoveGen, Rank, Square, NUM_FILES};
 
 use sdl2::{
     pixels,
@@ -102,6 +102,14 @@ impl ChessBoard {
 
 impl Drawable for ChessBoard {
     fn draw_at(&self, dest: &mut Renderer, center: Point) -> Result<(), String> {
+        let selected_moves = if let Some(square) = self.selected_square {
+            MoveGen::new_legal(&self.board)
+                .filter(|chess_move| chess_move.get_source() == square)
+                .collect()
+        } else {
+            vec![]
+        };
+
         for &square in chess::ALL_SQUARES.iter() {
             let rect = Self::draw_position(square, center);
 
@@ -145,6 +153,15 @@ impl Drawable for ChessBoard {
                 // Something needs to be highlighted
                 let magenta = pixels::Color::RGB(255, 0, 255);
                 dest.set_draw_color(magenta);
+                dest.draw_rect(rect)?;
+            }
+
+            if selected_moves
+                .iter()
+                .any(|chess_move| chess_move.get_dest() == square)
+            {
+                let green = pixels::Color::RGB(0, 250, 0);
+                dest.set_draw_color(green);
                 dest.draw_rect(rect)?;
             }
         }
