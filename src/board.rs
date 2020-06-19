@@ -18,6 +18,23 @@ const TILE_SIZE: u8 = 32;
 
 impl ChessBoard {
     pub fn new(sprites: Vec<Sprite>) -> Self {
+        chess::ALL_SQUARES
+            .iter()
+            .map(|&square| (square, chess::BoardBuilder::from(Board::default())[square]))
+            .filter_map(|(square, piece)| match piece {
+                None => None,
+                Some((piece, color)) => Some((square, color, piece)),
+            })
+            .for_each(|(square, color, piece)| {
+                println!(
+                    "{} (aka {}) has {:?} {:?}",
+                    square,
+                    square.to_int(),
+                    color,
+                    piece
+                )
+            });
+
         Self {
             board: Default::default(),
             sprites,
