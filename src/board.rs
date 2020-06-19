@@ -12,6 +12,7 @@ use crate::{drawable::Drawable, sprite::Sprite, utils};
 pub struct ChessBoard {
     board: Board,
     sprites: Vec<Sprite>,
+    selected_square: Option<Square>,
 }
 
 const TILE_SIZE: u8 = 32;
@@ -70,6 +71,13 @@ impl ChessBoard {
                 Rank::from_index(tile_y),
                 File::from_index(tile_x),
             ))
+        }
+    }
+
+    pub fn select(&mut self, square: Option<Square>) {
+        self.selected_square = square;
+        if let Some(square) = square {
+            println!("Selected {}", square);
         }
     }
 
