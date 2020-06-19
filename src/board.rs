@@ -38,14 +38,14 @@ impl ChessBoard {
         Self {
             board: Default::default(),
             sprites,
+            selected_square: Default::default(),
         }
     }
 
     /// Checks if the pixel position (relative to the center of the board) is inside the board
     pub fn contains_from_center(p: Point) -> bool {
-        let (x, y) = p.into();
-        let half_board_size = Self::board_size() / 2;
-        x > -half_board_size && x < half_board_size && y > -half_board_size && y < half_board_size
+        let board_size: u32 = Self::board_size().try_into().unwrap();
+        Rect::from_center((0, 0), board_size, board_size).contains(p)
     }
 
     /// Returns the square corresponding to the given point (relative from the center)
