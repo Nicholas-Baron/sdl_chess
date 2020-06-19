@@ -1,6 +1,7 @@
-use chess::{Board, Color, File, Rank, Square, NUM_FILES, NUM_RANKS};
+use chess::{Board, Color, File, Rank, Square, NUM_FILES};
 
 use sdl2::{
+    pixels,
     rect::{Point, Rect},
     render::Renderer,
 };
@@ -56,16 +57,11 @@ impl ChessBoard {
         } else {
             let half_board_size = Self::board_size() / 2;
 
-            let tile_pos = (p + (half_board_size, half_board_size).into()) / TILE_SIZE.into();
-            println!("Tile pos: {:?}", tile_pos);
+            let pixel_pos = p + (half_board_size, half_board_size).into();
+            let tile_pos = pixel_pos / TILE_SIZE.into();
 
-            // We calculate from the top left, however chess notation starts at the bottom left
-
-            let correct_x = -tile_pos.x() + 7;
-
-            let (tile_x, tile_y) = utils::map_tuple((correct_x, tile_pos.y()), |val| {
-                usize::try_from(val).unwrap()
-            });
+            let (tile_x, tile_y) =
+                utils::map_tuple(tile_pos.into(), |val| usize::try_from(val).unwrap());
 
             Some(Square::make_square(
                 Rank::from_index(tile_y),
@@ -86,25 +82,39 @@ impl ChessBoard {
         let tile_size: i32 = TILE_SIZE.into();
         i32::try_from(NUM_FILES).unwrap() * tile_size
     }
+
+    fn draw_position(square: Square, center: Point) -> Rect {
+        let tile_pos = (square.get_file().to_index(), square.get_rank().to_index());
+        let (x, y): (i32, _) = utils::map_tuple(tile_pos, |val| val.try_into().unwrap());
+
+        let tile_size: i32 = TILE_SIZE.into();
+        let (mut pixel_x, mut pixel_y) = utils::map_tuple((x, y), |val| val * tile_size);
+
+        let half_board_size = Self::board_size() / 2;
+        pixel_x += center.x() - half_board_size;
+
+        pixel_y = -pixel_y + (half_board_size - tile_size);
+        pixel_y += center.y();
+
+        Rect::new(pixel_x, pixel_y, TILE_SIZE.into(), TILE_SIZE.into())
+    }
 }
 
 impl Drawable for ChessBoard {
     fn draw_at(&self, dest: &mut Renderer, center: Point) -> Result<(), String> {
-        for x in 0..NUM_FILES {
-            for y in 0..NUM_RANKS {
-                let square = Square::make_square(Rank::from_index(y), File::from_index(x));
+        for &square in chess::ALL_SQUARES.iter() {
+            let rect = Self::draw_position(square, center);
 
-                let (x, y): (i32, _) = utils::map_tuple((x, y), |val| val.try_into().unwrap());
+            let in_board = Point::new(
+                rect.center().x() - center.x(),
+                center.y() - rect.center().y(),
+            );
 
-                let tile_size: i32 = TILE_SIZE.into();
-                let (mut pixel_x, mut pixel_y) = utils::map_tuple((x, y), |val| val * tile_size);
+            assert_eq!(Self::tile_coord(in_board), Some(square));
 
-                let board_size = Self::board_size();
-                pixel_x += center.x() - board_size / 2;
-                pixel_y += center.y() - board_size / 2;
-
-                let rect = Rect::new(pixel_x, pixel_y, TILE_SIZE.into(), TILE_SIZE.into());
-
+            {
+                let x = square.get_rank().to_index();
+                let y = square.get_file().to_index();
                 if (x + y) % 2 == 0 {
                     // White square
                     self.sprites[0].draw_on(dest, rect)?;
@@ -112,22 +122,45 @@ impl Drawable for ChessBoard {
                     // Black square
                     self.sprites[1].draw_on(dest, rect)?;
                 }
+            }
 
-                if let Some(piece) = self.board.piece_on(square) {
-                    let color = self.board.color_on(square).unwrap();
-
-                    use chess::Piece::*;
-                    use Color::*;
-                    match (piece, color) {
-                        (Pawn, White) => self.sprites[2].draw_on(dest, rect)?,
-                        (Pawn, Black) => self.sprites[3].draw_on(dest, rect)?,
-                        (Rook, White) => self.sprites[4].draw_on(dest, rect)?,
-                        (Rook, Black) => self.sprites[5].draw_on(dest, rect)?,
-                        _ => {} // eprintln!("Unimplemented piece {:?} {:?}", piece, color),
-                    }
+            if let Some(piece) = self.board.piece_on(square) {
+                let color = self.board.color_on(square).unwrap();
+                use chess::Piece::*;
+                use Color::*;
+                match (piece, color) {
+                    (Pawn, Black) => self.sprites[2].draw_on(dest, rect)?,
+                    (Pawn, White) => self.sprites[3].draw_on(dest, rect)?,
+                    (Rook, Black) => self.sprites[4].draw_on(dest, rect)?,
+                    (Rook, White) => self.sprites[5].draw_on(dest, rect)?,
+                    _ => {} // eprintln!("Unimplemented piece {:?} {:?}", piece, color),
                 }
             }
+
+            if self
+                .selected_square
+                .map(|val| val == square)
+                .unwrap_or(false)
+            {
+                // Something needs to be highlighted
+                let magenta = pixels::Color::RGB(255, 0, 255);
+                dest.set_draw_color(magenta);
+                dest.draw_rect(rect)?;
+            }
         }
+
+        for (i, sprite) in self.sprites.iter().enumerate() {
+            sprite.draw_on(
+                dest,
+                Rect::new(
+                    (32 * i).try_into().unwrap(),
+                    0,
+                    TILE_SIZE.into(),
+                    TILE_SIZE.into(),
+                ),
+            )?;
+        }
+
         Ok(())
     }
 }

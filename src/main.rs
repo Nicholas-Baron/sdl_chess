@@ -24,7 +24,7 @@ fn main() {
     let sprites =
         sprite::load_grid_sprite_sheet(&sdl_handle, sdl_handle.asset_path("sprite_sheet.png"), 32)
             .unwrap();
-    let board = ChessBoard::new(sprites);
+    let mut board = ChessBoard::new(sprites);
 
     let mut events = sdl_handle.event_pump().unwrap();
     let mut board_center = Point::from(utils::map_tuple(sdl_handle.center_of_draw(), |val| {
@@ -46,10 +46,8 @@ fn main() {
                     y,
                     ..
                 } => {
-                    let in_board = board_center - (x, y).into();
-                    if let Some(square) = ChessBoard::tile_coord(in_board) {
-                        println!("{}", square);
-                    }
+                    let in_board = Point::new(x - board_center.x(), board_center.y() - y);
+                    board.select(ChessBoard::tile_coord(in_board));
                 }
                 _ => {}
             }
