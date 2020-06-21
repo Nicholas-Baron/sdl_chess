@@ -1,4 +1,4 @@
-use chess::{Board, Color, File, MoveGen, Rank, Square, NUM_FILES};
+use chess::{Board, ChessMove, Color, File, MoveGen, Rank, Square, NUM_FILES};
 
 use sdl2::{
     pixels,
@@ -99,17 +99,21 @@ impl ChessBoard {
 
         Rect::new(pixel_x, pixel_y, TILE_SIZE.into(), TILE_SIZE.into())
     }
+
+    /// Lists all legal moves from the given source
+    fn moves_from(&self, source: Square) -> Vec<ChessMove> {
+        MoveGen::new_legal(&self.board)
+            .filter(|chess_move| chess_move.get_source() == source)
+            .collect()
+    }
 }
 
 impl Drawable for ChessBoard {
     fn draw_at(&self, dest: &mut Renderer, center: Point) -> Result<(), String> {
-        let selected_moves = if let Some(square) = self.selected_square {
-            MoveGen::new_legal(&self.board)
-                .filter(|chess_move| chess_move.get_source() == square)
-                .collect()
-        } else {
-            vec![]
-        };
+        let selected_moves = self
+            .selected_square
+            .map(|source| self.moves_from(source))
+            .unwrap_or_default();
 
         for &square in chess::ALL_SQUARES.iter() {
             let rect = Self::draw_position(square, center);
