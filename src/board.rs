@@ -71,6 +71,20 @@ impl ChessBoard {
     }
 
     pub fn select(&mut self, square: Option<Square>) {
+        if let (Some(original), Some(new_selection)) = (self.selected_square, square) {
+            let possible_moves = self.moves_from(original);
+            if let Some(chess_move) = possible_moves
+                .iter()
+                .find(|chess_move| chess_move.get_dest() == new_selection)
+            {
+                // TODO: `make_move` panics if the king is captured
+
+                self.board = self.board.make_move_new(*chess_move);
+                self.selected_square = None;
+                return;
+            }
+        }
+
         self.selected_square = square;
         if let Some(square) = square {
             println!("Selected {}", square);
