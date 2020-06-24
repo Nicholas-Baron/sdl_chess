@@ -92,7 +92,6 @@ impl ChessBoard {
         self.selected_square = square;
         if let Some(square) = square {
             println!("Selected {}", square);
-            println!("{:?}", self.board.side_to_move());
         }
     }
 

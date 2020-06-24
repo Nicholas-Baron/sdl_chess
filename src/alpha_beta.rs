@@ -1,27 +1,34 @@
 use chess::{Board, BoardStatus, ChessMove, Color, MoveGen};
 
+use std::time::Instant;
+
 const AI_SIDE: Color = Color::Black;
 
 const MAX_DEPTH: usize = 5;
 
 pub fn best_move(board: &Board) -> ChessMove {
     assert_eq!(board.side_to_move(), chess::Color::Black);
+    let start_compute = Instant::now();
     let moves: Vec<_> = MoveGen::new_legal(board)
         .map(|chess_move| {
             println!("Analyzing move {}", chess_move);
-            (
-                alpha_beta(
-                    board.make_move_new(chess_move),
-                    MAX_DEPTH,
-                    isize::MIN,
-                    isize::MAX,
-                    true,
-                ),
-                chess_move,
-            )
+            let start = Instant::now();
+            let score = alpha_beta(
+                board.make_move_new(chess_move),
+                MAX_DEPTH,
+                isize::MIN,
+                isize::MAX,
+                true,
+            );
+            println!("{:?}", Instant::now().duration_since(start));
+            (score, chess_move)
         })
         .collect();
 
+    println!(
+        "Took {:?} to compute all moves",
+        Instant::now().duration_since(start_compute)
+    );
     moves.iter().max_by_key(|(score, _)| score).unwrap().1
 }
 
