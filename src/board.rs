@@ -8,7 +8,7 @@ use sdl2::{
 
 use std::convert::{TryFrom, TryInto};
 
-use crate::{drawable::Drawable, sprite::Sprite, utils};
+use crate::{alpha_beta, drawable::Drawable, sprite::Sprite, utils};
 
 pub struct ChessBoard {
     board: Board,
@@ -81,6 +81,10 @@ impl ChessBoard {
 
                 self.board = self.board.make_move_new(*chess_move);
                 self.selected_square = None;
+                println!("AI is calculating move");
+                let ai_move = alpha_beta::best_move(&self.board);
+                println!("AI is doing {}", chess_move);
+                self.board = self.board.make_move_new(ai_move);
                 return;
             }
         }

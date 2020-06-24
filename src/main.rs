@@ -4,6 +4,8 @@ use sdl2_image::INIT_PNG;
 
 use std::{thread, time::Duration};
 
+mod alpha_beta;
+
 mod board;
 use board::ChessBoard;
 
