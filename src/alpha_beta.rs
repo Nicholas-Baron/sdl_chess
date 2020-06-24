@@ -1,5 +1,7 @@
 use chess::{Board, BoardStatus, ChessMove, Color, MoveGen};
 
+use rayon::prelude::*;
+
 use std::time::Instant;
 
 const AI_SIDE: Color = Color::Black;
@@ -9,18 +11,26 @@ const MAX_DEPTH: usize = 5;
 pub fn best_move(board: &Board) -> ChessMove {
     assert_eq!(board.side_to_move(), chess::Color::Black);
     let start_compute = Instant::now();
-    let moves: Vec<_> = MoveGen::new_legal(board)
+
+    let moves: Vec<_> = MoveGen::new_legal(board).collect();
+
+    let moves: Vec<(_, _)> = moves
+        .par_iter()
         .map(|chess_move| {
             println!("Analyzing move {}", chess_move);
             let start = Instant::now();
             let score = alpha_beta(
-                board.make_move_new(chess_move),
+                board.make_move_new(*chess_move),
                 MAX_DEPTH,
                 isize::MIN,
                 isize::MAX,
                 true,
             );
-            println!("{:?}", Instant::now().duration_since(start));
+            println!(
+                "Analysis of {} took {:?}",
+                chess_move,
+                Instant::now().duration_since(start)
+            );
             (score, chess_move)
         })
         .collect();
@@ -29,7 +39,8 @@ pub fn best_move(board: &Board) -> ChessMove {
         "Took {:?} to compute all moves",
         Instant::now().duration_since(start_compute)
     );
-    moves.iter().max_by_key(|(score, _)| score).unwrap().1
+
+    *moves.iter().max_by_key(|(score, _)| score).unwrap().1
 }
 
 fn score_for(board: Board) -> isize {
