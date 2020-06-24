@@ -7,6 +7,7 @@ use sdl2::{
 };
 
 use std::convert::{TryFrom, TryInto};
+use std::thread::{self, JoinHandle};
 
 use crate::{alpha_beta, drawable::Drawable, sprite::Sprite, utils};
 
@@ -14,6 +15,7 @@ pub struct ChessBoard {
     board: Board,
     sprites: Vec<Sprite>,
     selected_square: Option<Square>,
+    ai_thread: Option<JoinHandle<ChessMove>>,
 }
 
 const TILE_SIZE: u8 = 32;
@@ -41,6 +43,7 @@ impl ChessBoard {
             board: Default::default(),
             sprites,
             selected_square: Default::default(),
+            ai_thread: Default::default(),
         }
     }
 
@@ -70,6 +73,19 @@ impl ChessBoard {
         }
     }
 
+    fn resolve_ai(&mut self) {
+        if let Some(ai_thread) = self.ai_thread.take() {
+            println!("Resolving the AI...");
+            match ai_thread.join() {
+                Ok(ai_move) => {
+                    println!("AI is doing {}", ai_move);
+                    self.board = self.board.make_move_new(ai_move);
+                }
+                Err(_) => unreachable!("AI thread had an error"),
+            }
+        }
+    }
+
     pub fn select(&mut self, square: Option<Square>) {
         if let (Some(original), Some(new_selection)) = (self.selected_square, square) {
             let possible_moves = self.moves_from(original);
@@ -77,21 +93,26 @@ impl ChessBoard {
                 .iter()
                 .find(|chess_move| chess_move.get_dest() == new_selection)
             {
-                // TODO: `make_move` panics if the king is captured
+                self.resolve_ai();
 
                 self.board = self.board.make_move_new(*chess_move);
                 self.selected_square = None;
+
                 println!("AI is calculating move");
-                let ai_move = alpha_beta::best_move(&self.board);
-                println!("AI is doing {}", chess_move);
-                self.board = self.board.make_move_new(ai_move);
+                let board = self.board;
+                self.ai_thread = Some(thread::spawn(move || alpha_beta::best_move(&board)));
                 return;
             }
         }
 
-        self.selected_square = square;
-        if let Some(square) = square {
-            println!("Selected {}", square);
+        if self.selected_square != square {
+            self.selected_square = square;
+            if let Some(square) = square {
+                println!("Selected {}", square);
+                if self.board.color_on(square).is_some() {
+                    self.resolve_ai();
+                }
+            }
         }
     }
 
@@ -169,24 +190,26 @@ impl Drawable for ChessBoard {
                 }
             }
 
-            if self
-                .selected_square
-                .map(|val| val == square)
-                .unwrap_or(false)
-            {
-                // Something needs to be highlighted
-                let magenta = pixels::Color::RGB(255, 0, 255);
-                dest.set_draw_color(magenta);
-                dest.draw_rect(rect)?;
-            }
+            if self.ai_thread.is_none() {
+                if self
+                    .selected_square
+                    .map(|val| val == square)
+                    .unwrap_or(false)
+                {
+                    // Something needs to be highlighted
+                    let magenta = pixels::Color::RGB(255, 0, 255);
+                    dest.set_draw_color(magenta);
+                    dest.draw_rect(rect)?;
+                }
 
-            if selected_moves
-                .iter()
-                .any(|chess_move| chess_move.get_dest() == square)
-            {
-                let green = pixels::Color::RGB(0, 250, 0);
-                dest.set_draw_color(green);
-                dest.draw_rect(rect)?;
+                if selected_moves
+                    .iter()
+                    .any(|chess_move| chess_move.get_dest() == square)
+                {
+                    let green = pixels::Color::RGB(0, 250, 0);
+                    dest.set_draw_color(green);
+                    dest.draw_rect(rect)?;
+                }
             }
         }
 
