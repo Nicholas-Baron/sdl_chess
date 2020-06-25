@@ -27,7 +27,6 @@ pub fn best_move(board: &Board) -> ChessMove {
     let moves: Vec<(_, _)> = moves
         .par_iter()
         .map(|chess_move| {
-            println!("Analyzing move {}", chess_move);
             let start = Instant::now();
             let score = alpha_beta(
                 board.make_move_new(*chess_move),
