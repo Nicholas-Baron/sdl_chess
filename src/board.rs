@@ -153,7 +153,8 @@ impl ChessBoard {
             if let Some(square) = square {
                 println!("Selected {}", square);
                 if self.board.color_on(square) == Some(alpha_beta::AI_SIDE) {
-                    self.resolve_ai();
+                    self.try_resolve_ai();
+                    self.selected_square = None;
                 }
             }
         }
@@ -233,26 +234,24 @@ impl Drawable for ChessBoard {
                 }
             }
 
-            if self.ai_move_queue.is_none() {
-                if self
-                    .selected_square
-                    .map(|val| val == square)
-                    .unwrap_or(false)
-                {
-                    // Something needs to be highlighted
-                    let magenta = pixels::Color::RGB(255, 0, 255);
-                    dest.set_draw_color(magenta);
-                    dest.draw_rect(rect)?;
-                }
+            if self
+                .selected_square
+                .map(|val| val == square)
+                .unwrap_or(false)
+            {
+                // Something needs to be highlighted
+                let magenta = pixels::Color::RGB(255, 0, 255);
+                dest.set_draw_color(magenta);
+                dest.draw_rect(rect)?;
+            }
 
-                if selected_moves
-                    .iter()
-                    .any(|chess_move| chess_move.get_dest() == square)
-                {
-                    let green = pixels::Color::RGB(0, 250, 0);
-                    dest.set_draw_color(green);
-                    dest.draw_rect(rect)?;
-                }
+            if selected_moves
+                .iter()
+                .any(|chess_move| chess_move.get_dest() == square)
+            {
+                let green = pixels::Color::RGB(0, 250, 0);
+                dest.set_draw_color(green);
+                dest.draw_rect(rect)?;
             }
         }
 
