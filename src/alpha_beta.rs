@@ -4,7 +4,7 @@ use rayon::prelude::*;
 
 use std::time::Instant;
 
-const AI_SIDE: Color = Color::Black;
+pub const AI_SIDE: Color = Color::Black;
 
 const MAX_DEPTH: usize = 5;
 

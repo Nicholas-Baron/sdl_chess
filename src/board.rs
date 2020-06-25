@@ -7,7 +7,9 @@ use sdl2::{
 };
 
 use std::convert::{TryFrom, TryInto};
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread::{self, JoinHandle};
+use std::time::Duration;
 
 use crate::{alpha_beta, drawable::Drawable, sprite::Sprite, utils};
 
@@ -15,7 +17,8 @@ pub struct ChessBoard {
     board: Board,
     sprites: Vec<Sprite>,
     selected_square: Option<Square>,
-    ai_thread: Option<JoinHandle<ChessMove>>,
+    ai_executor: Option<JoinHandle<()>>,
+    ai_move_queue: Option<Receiver<ChessMove>>,
 }
 
 const TILE_SIZE: u8 = 32;
@@ -42,8 +45,9 @@ impl ChessBoard {
         Self {
             board: Default::default(),
             sprites,
+            ai_executor: Default::default(),
             selected_square: Default::default(),
-            ai_thread: Default::default(),
+            ai_move_queue: Default::default(),
         }
     }
 
@@ -73,20 +77,57 @@ impl ChessBoard {
         }
     }
 
+    fn apply_ai_move(&mut self, ai_move: ChessMove) {
+        println!("AI is doing {}", ai_move);
+        self.board = self.board.make_move_new(ai_move);
+    }
+
     fn resolve_ai(&mut self) {
-        if let Some(ai_thread) = self.ai_thread.take() {
+        if let Some(ai_move_queue) = self.ai_move_queue.take() {
             println!("Resolving the AI...");
-            match ai_thread.join() {
-                Ok(ai_move) => {
-                    println!("AI is doing {}", ai_move);
-                    self.board = self.board.make_move_new(ai_move);
+            let ai_move = match ai_move_queue.recv() {
+                Ok(val) => val,
+                Err(e) => {
+                    println!("{}", e);
+                    return;
                 }
-                Err(_) => unreachable!("AI thread had an error"),
-            }
+            };
+            self.apply_ai_move(ai_move);
+        }
+    }
+
+    fn try_resolve_ai(&mut self) {
+        let mut success = false;
+        if let Some(ai_move_queue) = self.ai_move_queue.as_ref() {
+            println!("Trying to resolve AI...");
+            use mpsc::RecvTimeoutError::*;
+            let ai_move = match ai_move_queue.recv_timeout(Duration::from_millis(1_000 / 60)) {
+                Ok(val) => val,
+                Err(e) => match e {
+                    Timeout => return,
+                    other => {
+                        println!("{}", other);
+                        return;
+                    }
+                },
+            };
+            self.apply_ai_move(ai_move);
+            success = true;
+        }
+
+        if success {
+            self.ai_move_queue = None;
+        }
+    }
+
+    fn ai_selection(board: Board, sender: Sender<ChessMove>) {
+        if let Err(e) = sender.send(alpha_beta::best_move(&board)) {
+            println!("{}", e);
         }
     }
 
     pub fn select(&mut self, square: Option<Square>) {
+        self.try_resolve_ai();
         if let (Some(original), Some(new_selection)) = (self.selected_square, square) {
             let possible_moves = self.moves_from(original);
             if let Some(chess_move) = possible_moves
@@ -99,8 +140,10 @@ impl ChessBoard {
                 self.selected_square = None;
 
                 println!("AI is calculating move");
+                let (send, recv) = mpsc::channel();
+                self.ai_move_queue = Some(recv);
                 let board = self.board;
-                self.ai_thread = Some(thread::spawn(move || alpha_beta::best_move(&board)));
+                self.ai_executor = Some(thread::spawn(move || Self::ai_selection(board, send)));
                 return;
             }
         }
@@ -109,7 +152,7 @@ impl ChessBoard {
             self.selected_square = square;
             if let Some(square) = square {
                 println!("Selected {}", square);
-                if self.board.color_on(square).is_some() {
+                if self.board.color_on(square) == Some(alpha_beta::AI_SIDE) {
                     self.resolve_ai();
                 }
             }
@@ -190,7 +233,7 @@ impl Drawable for ChessBoard {
                 }
             }
 
-            if self.ai_thread.is_none() {
+            if self.ai_move_queue.is_none() {
                 if self
                     .selected_square
                     .map(|val| val == square)
