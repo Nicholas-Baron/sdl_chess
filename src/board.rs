@@ -80,9 +80,11 @@ impl ChessBoard {
     fn apply_ai_move(&mut self, ai_move: ChessMove) {
         println!("AI is doing {}", ai_move);
         self.board = self.board.make_move_new(ai_move);
+        self.ai_move_queue = None;
     }
 
-    fn resolve_ai(&mut self) {
+    /// Block until the AI finishes computing its move
+    pub fn resolve_ai(&mut self) {
         if let Some(ai_move_queue) = self.ai_move_queue.take() {
             println!("Resolving the AI...");
             let ai_move = match ai_move_queue.recv() {
@@ -96,10 +98,10 @@ impl ChessBoard {
         }
     }
 
-    fn try_resolve_ai(&mut self) {
-        let mut success = false;
+    /// If the AI has finished computing its move, apply it.
+    /// Otherwise, do not block.
+    pub fn try_resolve_ai(&mut self) {
         if let Some(ai_move_queue) = self.ai_move_queue.as_ref() {
-            println!("Trying to resolve AI...");
             use mpsc::RecvTimeoutError::*;
             let ai_move = match ai_move_queue.recv_timeout(Duration::from_millis(1_000 / 60)) {
                 Ok(val) => val,
@@ -112,11 +114,6 @@ impl ChessBoard {
                 },
             };
             self.apply_ai_move(ai_move);
-            success = true;
-        }
-
-        if success {
-            self.ai_move_queue = None;
         }
     }
 

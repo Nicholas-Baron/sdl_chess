@@ -55,6 +55,7 @@ fn main() {
             }
         }
 
+        board.try_resolve_ai();
         sdl_handle.clear();
         sdl_handle.draw_at(board_center, &board).unwrap();
         sdl_handle.present();
