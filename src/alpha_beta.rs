@@ -8,7 +8,7 @@ pub const AI_SIDE: Color = Color::Black;
 
 type ScoreType = isize;
 
-const MAX_DEPTH: usize = 5;
+const MAX_DEPTH: usize = 6;
 
 fn min_score() -> ScoreType {
     ScoreType::MIN
