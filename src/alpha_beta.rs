@@ -6,7 +6,17 @@ use std::time::Instant;
 
 pub const AI_SIDE: Color = Color::Black;
 
+type ScoreType = isize;
+
 const MAX_DEPTH: usize = 5;
+
+fn min_score() -> ScoreType {
+    ScoreType::MIN
+}
+
+fn max_score() -> ScoreType {
+    ScoreType::MAX
+}
 
 pub fn best_move(board: &Board) -> ChessMove {
     assert_eq!(board.side_to_move(), chess::Color::Black);
@@ -22,8 +32,8 @@ pub fn best_move(board: &Board) -> ChessMove {
             let score = alpha_beta(
                 board.make_move_new(*chess_move),
                 MAX_DEPTH,
-                isize::MIN,
-                isize::MAX,
+                min_score(),
+                max_score(),
                 true,
             );
             println!(
@@ -43,7 +53,7 @@ pub fn best_move(board: &Board) -> ChessMove {
     *moves.iter().max_by_key(|(score, _)| score).unwrap().1
 }
 
-fn score_for(board: Board) -> isize {
+fn score_for(board: Board) -> ScoreType {
     // First, count the number of possible moves
     let possible_move_count = MoveGen::new_legal(&board).count();
 
@@ -65,7 +75,7 @@ fn score_for(board: Board) -> isize {
 
     use std::convert::TryFrom;
 
-    let player_count = isize::try_from(
+    let player_count = ScoreType::try_from(
         pieces_on_board
             .iter()
             .filter(|(_, color)| *color != AI_SIDE)
@@ -73,16 +83,16 @@ fn score_for(board: Board) -> isize {
     )
     .unwrap();
 
-    isize::try_from(possible_move_count + ai_count).unwrap() - player_count
+    ScoreType::try_from(possible_move_count + ai_count).unwrap() - player_count
 }
 
 fn alpha_beta(
     board: Board,
     depth: usize,
-    mut alpha: isize,
-    mut beta: isize,
+    mut alpha: ScoreType,
+    mut beta: ScoreType,
     maximize: bool,
-) -> isize {
+) -> ScoreType {
     if depth == 0 || board.status() != BoardStatus::Ongoing {
         return match board.status() {
             BoardStatus::Stalemate => 0,
@@ -90,9 +100,9 @@ fn alpha_beta(
                 let attacking_square = board.checkers().to_square();
                 let attacking_color = board.color_on(attacking_square).unwrap();
                 if attacking_color == AI_SIDE {
-                    isize::MAX
+                    max_score()
                 } else {
-                    isize::MIN
+                    min_score()
                 }
             }
             BoardStatus::Ongoing => score_for(board),
@@ -100,7 +110,7 @@ fn alpha_beta(
     }
 
     let moves = MoveGen::new_legal(&board);
-    let mut value = if maximize { isize::MIN } else { isize::MAX };
+    let mut value = if maximize { min_score() } else { max_score() };
 
     for child in moves.map(|chess_move| board.make_move_new(chess_move)) {
         let next_value = alpha_beta(child, depth - 1, alpha, beta, !maximize);
