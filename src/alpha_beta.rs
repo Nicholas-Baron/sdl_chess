@@ -100,26 +100,23 @@ fn alpha_beta(
     }
 
     let moves = MoveGen::new_legal(&board);
+    let mut value = if maximize { isize::MIN } else { isize::MAX };
 
-    if maximize {
-        let mut value = isize::MIN;
-        for child in moves.map(|chess_move| board.make_move_new(chess_move)) {
-            value = value.max(alpha_beta(child, depth - 1, alpha, beta, false));
+    for child in moves.map(|chess_move| board.make_move_new(chess_move)) {
+        let next_value = alpha_beta(child, depth - 1, alpha, beta, !maximize);
+        if maximize {
+            value = value.max(next_value);
             alpha = alpha.max(value);
             if alpha >= beta {
                 return value;
             }
-        }
-        value
-    } else {
-        let mut value = isize::MAX;
-        for child in moves.map(|chess_move| board.make_move_new(chess_move)) {
-            value = value.min(alpha_beta(child, depth - 1, alpha, beta, true));
+        } else {
+            value = value.min(next_value);
             beta = beta.min(value);
             if beta <= alpha {
                 return value;
             }
         }
-        value
     }
+    value
 }
