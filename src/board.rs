@@ -229,7 +229,10 @@ impl Drawable for ChessBoard {
                     (Knight, White) => self.sprites[7].draw_on(dest, rect)?,
                     (Bishop, Black) => self.sprites[8].draw_on(dest, rect)?,
                     (Bishop, White) => self.sprites[9].draw_on(dest, rect)?,
-                    _ => {} // eprintln!("Unimplemented piece {:?} {:?}", piece, color),
+                    (Queen, Black) => self.sprites[10].draw_on(dest, rect)?,
+                    (Queen, White) => self.sprites[11].draw_on(dest, rect)?,
+                    (King, Black) => self.sprites[12].draw_on(dest, rect)?,
+                    (King, White) => self.sprites[13].draw_on(dest, rect)?,
                 }
             }
 
