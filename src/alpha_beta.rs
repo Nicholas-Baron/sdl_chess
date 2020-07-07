@@ -24,6 +24,13 @@ pub fn best_move(board: &Board) -> ChessMove {
 
     let moves: Vec<_> = MoveGen::new_legal(board).collect();
 
+    assert!(!moves.is_empty());
+
+    // If there is a single move, no need to compute the best possible move
+    if moves.len() == 1 {
+        return *moves.first().unwrap();
+    }
+
     let moves: Vec<(_, _)> = moves
         .par_iter()
         .map(|chess_move| {
