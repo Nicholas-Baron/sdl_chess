@@ -1,4 +1,4 @@
-use chess::{Board, ChessMove, Color, File, MoveGen, Rank, Square, NUM_FILES};
+use chess::{Board, BoardStatus, ChessMove, Color, File, MoveGen, Rank, Square, NUM_FILES};
 
 use sdl2::{
     pixels,
@@ -155,6 +155,18 @@ impl ChessBoard {
                 }
             }
         }
+    }
+
+    fn status(&self) -> BoardStatus {
+        self.board.status()
+    }
+
+    pub fn is_ongoing(&self) -> bool {
+        self.status() == BoardStatus::Ongoing
+    }
+
+    pub fn is_player_winner(&self) -> bool {
+        self.status() == BoardStatus::Checkmate && self.board.side_to_move() == alpha_beta::AI_SIDE
     }
 
     /// The board size in pixels

@@ -35,27 +35,33 @@ fn main() {
     }));
 
     'run_loop: loop {
-        while let Some(event) = events.poll_event() {
-            match event {
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => break 'run_loop,
-                Event::MouseButtonDown {
-                    mouse_btn: Mouse::Left,
-                    x,
-                    y,
-                    ..
-                } => {
-                    let in_board = Point::new(x - board_center.x(), board_center.y() - y);
-                    board.select(ChessBoard::tile_coord(in_board));
+        if board.is_ongoing() {
+            while let Some(event) = events.poll_event() {
+                match event {
+                    Event::Quit { .. }
+                    | Event::KeyDown {
+                        keycode: Some(Keycode::Escape),
+                        ..
+                    } => break 'run_loop,
+                    Event::MouseButtonDown {
+                        mouse_btn: Mouse::Left,
+                        x,
+                        y,
+                        ..
+                    } => {
+                        let in_board = Point::new(x - board_center.x(), board_center.y() - y);
+                        board.select(ChessBoard::tile_coord(in_board));
+                    }
+                    _ => {}
                 }
-                _ => {}
             }
+            board.try_resolve_ai();
+        } else if board.is_player_winner() {
+            println!("Player won");
+        } else {
+            println!("Stalemate or AI won");
         }
 
-        board.try_resolve_ai();
         sdl_handle.clear();
         sdl_handle.draw_at(board_center, &board).unwrap();
         sdl_handle.present();
