@@ -133,6 +133,7 @@ impl ChessBoard {
             {
                 self.resolve_ai();
 
+                println!("Player is doing {}", chess_move);
                 self.board = self.board.make_move_new(*chess_move);
                 self.selected_square = None;
 
