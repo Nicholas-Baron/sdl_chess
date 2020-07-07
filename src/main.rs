@@ -35,26 +35,27 @@ fn main() {
     }));
 
     'run_loop: loop {
-        if board.is_ongoing() {
-            while let Some(event) = events.poll_event() {
-                match event {
-                    Event::Quit { .. }
-                    | Event::KeyDown {
-                        keycode: Some(Keycode::Escape),
-                        ..
-                    } => break 'run_loop,
-                    Event::MouseButtonDown {
-                        mouse_btn: Mouse::Left,
-                        x,
-                        y,
-                        ..
-                    } => {
-                        let in_board = Point::new(x - board_center.x(), board_center.y() - y);
-                        board.select(ChessBoard::tile_coord(in_board));
-                    }
-                    _ => {}
+        while let Some(event) = events.poll_event() {
+            match event {
+                Event::Quit { .. }
+                | Event::KeyDown {
+                    keycode: Some(Keycode::Escape),
+                    ..
+                } => break 'run_loop,
+                Event::MouseButtonDown {
+                    mouse_btn: Mouse::Left,
+                    x,
+                    y,
+                    ..
+                } => {
+                    let in_board = Point::new(x - board_center.x(), board_center.y() - y);
+                    board.select(ChessBoard::tile_coord(in_board));
                 }
+                _ => {}
             }
+        }
+
+        if board.is_ongoing() {
             board.try_resolve_ai();
         } else if board.is_player_winner() {
             println!("Player won");
