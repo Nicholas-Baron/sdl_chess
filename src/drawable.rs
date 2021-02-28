@@ -1,7 +1,10 @@
 use sdl2::{
     rect::{Point, Rect},
-    render::Renderer,
+    render::Canvas,
+    video::Window,
 };
+
+pub type Renderer = Canvas<Window>;
 
 pub trait Drawable {
     fn draw_on(&self, dest: &mut Renderer, area: Rect) -> Result<(), String> {

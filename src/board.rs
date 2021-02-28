@@ -3,7 +3,6 @@ use chess::{Board, BoardStatus, ChessMove, Color, File, MoveGen, Rank, Square, N
 use sdl2::{
     pixels,
     rect::{Point, Rect},
-    render::Renderer,
 };
 
 use std::convert::{TryFrom, TryInto};
@@ -11,11 +10,16 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-use crate::{alpha_beta, drawable::Drawable, sprite::Sprite, utils};
+use crate::{
+    alpha_beta,
+    drawable::{Drawable, Renderer},
+    sprite::Sprite,
+    utils,
+};
 
-pub struct ChessBoard {
+pub struct ChessBoard<'a> {
     board: Board,
-    sprites: Vec<Sprite>,
+    sprites: Vec<Sprite<'a>>,
     selected_square: Option<Square>,
     ai_executor: Option<JoinHandle<()>>,
     ai_move_queue: Option<Receiver<ChessMove>>,
@@ -23,8 +27,8 @@ pub struct ChessBoard {
 
 const TILE_SIZE: u8 = 32;
 
-impl ChessBoard {
-    pub fn new(sprites: Vec<Sprite>) -> Self {
+impl<'a> ChessBoard<'a> {
+    pub fn new(sprites: Vec<Sprite<'a>>) -> ChessBoard {
         chess::ALL_SQUARES
             .iter()
             .map(|&square| (square, chess::BoardBuilder::from(Board::default())[square]))
@@ -54,7 +58,7 @@ impl ChessBoard {
     /// Checks if the pixel position (relative to the center of the board) is inside the board
     pub fn contains_from_center(p: Point) -> bool {
         let board_size: u32 = Self::board_size().try_into().unwrap();
-        Rect::from_center((0, 0), board_size, board_size).contains(p)
+        Rect::from_center((0, 0), board_size, board_size).contains_point(p)
     }
 
     /// Returns the square corresponding to the given point (relative from the center)
@@ -134,7 +138,8 @@ impl ChessBoard {
                 self.resolve_ai();
 
                 println!("Player is doing {}", chess_move);
-                self.board = self.board.make_move_new(*chess_move);
+                let new_board = self.board.make_move_new(*chess_move);
+                self.board = new_board;
                 self.selected_square = None;
 
                 println!("AI is calculating move");
@@ -200,7 +205,26 @@ impl ChessBoard {
     }
 }
 
-impl Drawable for ChessBoard {
+impl Clone for ChessBoard<'_> {
+    fn clone(&self) -> Self {
+        let Self {
+            board,
+            selected_square,
+            sprites,
+            ..
+        } = self;
+
+        Self {
+            board: *board,
+            ai_executor: None,
+            ai_move_queue: None,
+            selected_square: *selected_square,
+            sprites: Vec::clone(sprites),
+        }
+    }
+}
+
+impl Drawable for ChessBoard<'_> {
     fn draw_at(&self, dest: &mut Renderer, center: Point) -> Result<(), String> {
         let selected_moves = self
             .selected_square

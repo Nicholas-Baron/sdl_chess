@@ -1,19 +1,22 @@
 use sdl2::{
+    image::LoadTexture,
     rect::Rect,
-    render::{Renderer, Texture, TextureQuery},
+    render::{Texture, TextureQuery},
 };
-use sdl2_image::LoadTexture;
 
 use std::{convert::TryInto, path::Path, rc::Rc};
 
-use crate::{drawable::Drawable, utils};
+use crate::{
+    drawable::{Drawable, Renderer},
+    utils,
+};
 
 /// Load an image as a spritesheet with a grid that starts on 0,0
 pub fn load_grid_sprite_sheet<Loader: LoadTexture, P: AsRef<Path>>(
     loader: &Loader,
     filename: P,
     grid_size: u32,
-) -> Result<Vec<Sprite>, String> {
+) -> Result<Vec<Sprite<'_>>, String> {
     let texture = Rc::new(loader.load_texture(filename.as_ref())?);
 
     let (width, height) = texture_size(&texture);
@@ -32,13 +35,14 @@ pub fn load_grid_sprite_sheet<Loader: LoadTexture, P: AsRef<Path>>(
 }
 
 /// A sprite is a square mask on another texture
-pub struct Sprite {
-    sheet: Rc<Texture>,
+#[derive(Clone)]
+pub struct Sprite<'a> {
+    sheet: Rc<Texture<'a>>,
     mask: Rect,
 }
 
-impl Sprite {
-    fn from_sheet(sheet: Rc<Texture>, rect: Rect) -> Result<Self, String> {
+impl<'a> Sprite<'a> {
+    fn from_sheet(sheet: Rc<Texture<'a>>, rect: Rect) -> Result<Self, String> {
         let (sheet_width, sheet_height) =
             utils::map_tuple(texture_size(&sheet), |val| val.try_into().unwrap());
 
@@ -56,7 +60,7 @@ impl Sprite {
     }
 }
 
-impl Drawable for Sprite {
+impl Drawable for Sprite<'_> {
     fn draw_on(&self, dest: &mut Renderer, target_area: Rect) -> Result<(), String> {
         dest.copy(&self.sheet, Some(self.mask), Some(target_area))
     }

@@ -1,24 +1,21 @@
 use sdl2::{
+    image::{self, Sdl2ImageContext},
     pixels::Color,
     rect::{Point, Rect},
-    render::{Renderer, Texture},
+    render::TextureCreator,
+    video::WindowContext,
     EventPump, Sdl,
 };
 
-use sdl2_image::{self as image, LoadTexture, Sdl2ImageContext};
+use std::{env::current_dir, path::PathBuf};
 
-use std::{
-    env::current_dir,
-    path::{Path, PathBuf},
-};
-
-use crate::drawable::Drawable;
+use crate::drawable::{Drawable, Renderer};
 use crate::utils;
 
 pub struct SDLHandle {
     _image_context: Sdl2ImageContext,
     sdl_context: Sdl,
-    canvas: Renderer<'static>,
+    canvas: Renderer,
     app_directory: PathBuf,
 }
 
@@ -40,7 +37,7 @@ impl SDLHandle {
             .map_err(|e| format!("Error building window: {}", e))?;
 
         let mut canvas = window
-            .renderer()
+            .into_canvas()
             .present_vsync()
             .build()
             .map_err(|e| format!("Error building canvas: {}", e))?;
@@ -100,10 +97,8 @@ impl SDLHandle {
         self.canvas.set_draw_color(CLEAR_COLOR);
         self.canvas.clear();
     }
-}
 
-impl LoadTexture for SDLHandle {
-    fn load_texture(&self, filename: &Path) -> Result<Texture, String> {
-        self.canvas.load_texture(filename)
+    pub fn texture_creator(&self) -> TextureCreator<WindowContext> {
+        self.canvas.texture_creator()
     }
 }
