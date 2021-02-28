@@ -11,7 +11,7 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use crate::{
-    alpha_beta,
+    alpha_beta::{self, AIState},
     drawable::{Drawable, Renderer},
     sprite::Sprite,
     utils,
@@ -22,7 +22,8 @@ pub struct ChessBoard<'a> {
     sprites: Vec<Sprite<'a>>,
     selected_square: Option<Square>,
     ai_executor: Option<JoinHandle<()>>,
-    ai_move_queue: Option<Receiver<ChessMove>>,
+    ai_move_queue: Option<Receiver<(ChessMove, AIState)>>,
+    ai_state: AIState,
 }
 
 const TILE_SIZE: u8 = 32;
@@ -46,9 +47,11 @@ impl<'a> ChessBoard<'a> {
                 )
             });
 
+        let board = Default::default();
         Self {
-            board: Default::default(),
             sprites,
+            ai_state: AIState::analyze_board(board),
+            board,
             ai_executor: Default::default(),
             selected_square: Default::default(),
             ai_move_queue: Default::default(),
@@ -91,7 +94,7 @@ impl<'a> ChessBoard<'a> {
     pub fn resolve_ai(&mut self) {
         if let Some(ai_move_queue) = self.ai_move_queue.take() {
             println!("Resolving the AI...");
-            let ai_move = match ai_move_queue.recv() {
+            let (ai_move, ai_state) = match ai_move_queue.recv() {
                 Ok(val) => val,
                 Err(e) => {
                     println!("{}", e);
@@ -99,6 +102,7 @@ impl<'a> ChessBoard<'a> {
                 }
             };
             self.apply_ai_move(ai_move);
+            self.ai_state = ai_state;
         }
     }
 
@@ -107,22 +111,24 @@ impl<'a> ChessBoard<'a> {
     pub fn try_resolve_ai(&mut self) {
         if let Some(ai_move_queue) = self.ai_move_queue.as_ref() {
             use mpsc::RecvTimeoutError::*;
-            let ai_move = match ai_move_queue.recv_timeout(Duration::from_millis(1_000 / 60)) {
-                Ok(val) => val,
-                Err(e) => match e {
-                    Timeout => return,
-                    other => {
-                        println!("{}", other);
-                        return;
-                    }
-                },
-            };
+            let (ai_move, ai_state) =
+                match ai_move_queue.recv_timeout(Duration::from_millis(1_000 / 60)) {
+                    Ok(val) => val,
+                    Err(e) => match e {
+                        Timeout => return,
+                        other => {
+                            println!("{}", other);
+                            return;
+                        }
+                    },
+                };
             self.apply_ai_move(ai_move);
+            self.ai_state = ai_state;
         }
     }
 
-    fn ai_selection(board: Board, sender: Sender<ChessMove>) {
-        if let Err(e) = sender.send(alpha_beta::best_move(&board)) {
+    fn ai_selection(board: Board, ai_state: AIState, sender: Sender<(ChessMove, AIState)>) {
+        if let Err(e) = sender.send(alpha_beta::best_move(board, ai_state)) {
             println!("{}", e);
         }
     }
@@ -146,7 +152,10 @@ impl<'a> ChessBoard<'a> {
                 let (send, recv) = mpsc::channel();
                 self.ai_move_queue = Some(recv);
                 let board = self.board;
-                self.ai_executor = Some(thread::spawn(move || Self::ai_selection(board, send)));
+                let ai_state = self.ai_state.clone();
+                self.ai_executor = Some(thread::spawn(move || {
+                    Self::ai_selection(board, ai_state, send)
+                }));
                 return;
             }
         }
@@ -211,6 +220,7 @@ impl Clone for ChessBoard<'_> {
             board,
             selected_square,
             sprites,
+            ai_state,
             ..
         } = self;
 
@@ -220,6 +230,7 @@ impl Clone for ChessBoard<'_> {
             ai_move_queue: None,
             selected_square: *selected_square,
             sprites: Vec::clone(sprites),
+            ai_state: ai_state.clone(),
         }
     }
 }

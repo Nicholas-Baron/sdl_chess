@@ -2,6 +2,7 @@ use chess::{Board, BoardStatus, ChessMove, Color, MoveGen, Piece};
 
 use rayon::prelude::*;
 
+use std::collections::VecDeque;
 use std::time::Instant;
 
 pub const AI_SIDE: Color = Color::Black;
@@ -10,15 +11,136 @@ type ScoreType = isize;
 
 const MAX_DEPTH: usize = 6;
 
-fn min_score() -> ScoreType {
+const fn min_score() -> ScoreType {
     ScoreType::MIN
 }
 
-fn max_score() -> ScoreType {
+const fn max_score() -> ScoreType {
     ScoreType::MAX
 }
 
-fn points_for_piece(piece: Piece) -> ScoreType {
+type AIChildren = Vec<(ChessMove, AIState)>;
+
+#[derive(Clone)]
+pub struct AIState {
+    board: Board,
+    score: ScoreType,
+    // `None` signifies no computations done.
+    // Empty `Vec` signifies an end of game.
+    children: Option<AIChildren>,
+}
+
+impl AIState {
+    pub fn analyze_board(board: Board) -> Self {
+        Self {
+            board,
+            score: score_for(board),
+            children: Some(Self::compute_children(&board)),
+        }
+    }
+
+    fn compute_children(board: &Board) -> Vec<(ChessMove, AIState)> {
+        MoveGen::new_legal(&board)
+            .map(|chess_move| {
+                (
+                    chess_move,
+                    Self::lazy_convert(board.make_move_new(chess_move)),
+                )
+            })
+            .collect()
+    }
+
+    fn lazy_convert(board: Board) -> Self {
+        Self {
+            board,
+            score: score_for(board),
+            children: None,
+        }
+    }
+
+    fn children(&mut self) -> &mut AIChildren {
+        let board = self.board;
+        self.children
+            .get_or_insert_with(|| Self::compute_children(&board))
+    }
+
+    fn into_children(mut self) -> AIChildren {
+        self.children
+            .take()
+            .unwrap_or_else(|| Self::compute_children(&self.board))
+    }
+
+    fn find(&mut self, board: Board) -> Option<Self> {
+        let mut to_search: VecDeque<AIState> = VecDeque::new();
+        for (_, child) in self.children() {
+            to_search.push_back(child.clone());
+        }
+
+        while let Some(mut child) = to_search.pop_front() {
+            if child.board == board {
+                return Some(child);
+            }
+            for (_, child) in child.children() {
+                to_search.push_back(child.clone());
+            }
+        }
+        None
+    }
+
+    fn alpha_beta(
+        &mut self,
+        depth: usize,
+        mut alpha: ScoreType,
+        mut beta: ScoreType,
+    ) -> (ScoreType, &mut AIState) {
+        if depth == 0 || self.board.status() != BoardStatus::Ongoing {
+            return (
+                match self.board.status() {
+                    BoardStatus::Stalemate => 0,
+                    BoardStatus::Checkmate => {
+                        let attacking_square = self.board.checkers().to_square();
+                        let attacking_color = self.board.color_on(attacking_square).unwrap();
+                        if attacking_color == AI_SIDE {
+                            max_score()
+                        } else {
+                            min_score()
+                        }
+                    }
+                    BoardStatus::Ongoing => score_for(self.board),
+                },
+                self,
+            );
+        }
+
+        let maximize = self.board.side_to_move() == AI_SIDE;
+        let mut value = if maximize { min_score() } else { max_score() };
+        let mut result_state = None;
+
+        for (_, child) in self.children().iter_mut() {
+            let (next_value, ai_state) = child.alpha_beta(depth - 1, alpha, beta);
+            if maximize {
+                if value < next_value {
+                    value = next_value;
+                    alpha = alpha.max(value);
+                    if alpha >= beta {
+                        return (value, ai_state);
+                    }
+                    result_state = Some(ai_state);
+                }
+            } else if value > next_value {
+                value = next_value;
+                beta = beta.min(value);
+                if beta <= alpha {
+                    return (value, ai_state);
+                }
+                result_state = Some(ai_state);
+            }
+        }
+        (value, result_state.unwrap())
+    }
+}
+
+const fn points_for_piece(piece: Piece) -> ScoreType {
     match piece {
         Piece::Pawn => 1,
         Piece::Knight | Piece::Bishop => 3,
@@ -28,35 +150,32 @@ fn points_for_piece(piece: Piece) -> ScoreType {
     }
 }
 
-pub fn best_move(board: &Board) -> ChessMove {
+pub fn best_move(board: Board, mut ai_state: AIState) -> (ChessMove, AIState) {
     assert_eq!(board.side_to_move(), chess::Color::Black);
     let start_compute = Instant::now();
 
-    let moves: Vec<_> = MoveGen::new_legal(board).collect();
+    let current_state = ai_state.find(board).unwrap();
+    // We can strip away all the information about the given AI State, as we will not need it.
+    let children = current_state.into_children();
 
-    assert!(!moves.is_empty());
+    assert!(!children.is_empty());
 
     // If there is a single move, no need to compute the best possible move
-    if moves.len() == 1 {
-        return *moves.first().unwrap();
+    if children.len() == 1 {
+        return children.first().unwrap().clone();
     }
 
-    let moves: Vec<(_, _)> = moves
-        .par_iter()
-        .map(|chess_move| {
+    let moves: Vec<_> = children
+        .into_par_iter()
+        .map(|(chess_move, mut ai_state)| {
             let start = Instant::now();
-            let score = alpha_beta(
-                board.make_move_new(*chess_move),
-                MAX_DEPTH,
-                min_score(),
-                max_score(),
-            );
+            let (score, ai_state) = ai_state.alpha_beta(MAX_DEPTH, min_score(), max_score());
             println!(
                 "Analysis of {} took {:?}",
                 chess_move,
                 Instant::now().duration_since(start)
             );
-            (score, chess_move)
+            (score, chess_move, ai_state.clone())
         })
         .collect();
 
@@ -65,7 +184,12 @@ pub fn best_move(board: &Board) -> ChessMove {
         Instant::now().duration_since(start_compute)
     );
 
-    *moves.iter().max_by_key(|(score, _)| score).unwrap().1
+    let (_score, ai_move, ai_state) = moves
+        .into_iter()
+        .max_by_key(|(score, _, _)| *score)
+        .unwrap();
+
+    (ai_move, ai_state)
 }
 
 fn score_for(board: Board) -> ScoreType {
@@ -103,44 +227,4 @@ fn score_for(board: Board) -> ScoreType {
 
     use std::convert::TryFrom;
     ScoreType::try_from(possible_move_count).unwrap() + ai_points - player_points
-}
-
-fn alpha_beta(board: Board, depth: usize, mut alpha: ScoreType, mut beta: ScoreType) -> ScoreType {
-    if depth == 0 || board.status() != BoardStatus::Ongoing {
-        return match board.status() {
-            BoardStatus::Stalemate => 0,
-            BoardStatus::Checkmate => {
-                let attacking_square = board.checkers().to_square();
-                let attacking_color = board.color_on(attacking_square).unwrap();
-                if attacking_color == AI_SIDE {
-                    max_score()
-                } else {
-                    min_score()
-                }
-            }
-            BoardStatus::Ongoing => score_for(board),
-        };
-    }
-
-    let moves = MoveGen::new_legal(&board);
-    let maximize = board.side_to_move() == AI_SIDE;
-    let mut value = if maximize { min_score() } else { max_score() };
-
-    for child in moves.map(|chess_move| board.make_move_new(chess_move)) {
-        let next_value = alpha_beta(child, depth - 1, alpha, beta);
-        if maximize {
-            value = value.max(next_value);
-            alpha = alpha.max(value);
-            if alpha >= beta {
-                return value;
-            }
-        } else {
-            value = value.min(next_value);
-            beta = beta.min(value);
-            if beta <= alpha {
-                return value;
-            }
-        }
-    }
-    value
 }
