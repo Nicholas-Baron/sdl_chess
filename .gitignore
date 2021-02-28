@@ -1,1 +1,9 @@
 /target
+
+# Performance measuring
+
+perf.data*
+flamegraph.svg
+
+# Local Note-taking
+notes.txt
