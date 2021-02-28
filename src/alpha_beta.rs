@@ -50,7 +50,6 @@ pub fn best_move(board: &Board) -> ChessMove {
                 MAX_DEPTH,
                 min_score(),
                 max_score(),
-                true,
             );
             println!(
                 "Analysis of {} took {:?}",
@@ -106,13 +105,7 @@ fn score_for(board: Board) -> ScoreType {
     ScoreType::try_from(possible_move_count).unwrap() + ai_points - player_points
 }
 
-fn alpha_beta(
-    board: Board,
-    depth: usize,
-    mut alpha: ScoreType,
-    mut beta: ScoreType,
-    maximize: bool,
-) -> ScoreType {
+fn alpha_beta(board: Board, depth: usize, mut alpha: ScoreType, mut beta: ScoreType) -> ScoreType {
     if depth == 0 || board.status() != BoardStatus::Ongoing {
         return match board.status() {
             BoardStatus::Stalemate => 0,
@@ -130,10 +123,11 @@ fn alpha_beta(
     }
 
     let moves = MoveGen::new_legal(&board);
+    let maximize = board.side_to_move() == AI_SIDE;
     let mut value = if maximize { min_score() } else { max_score() };
 
     for child in moves.map(|chess_move| board.make_move_new(chess_move)) {
-        let next_value = alpha_beta(child, depth - 1, alpha, beta, !maximize);
+        let next_value = alpha_beta(child, depth - 1, alpha, beta);
         if maximize {
             value = value.max(next_value);
             alpha = alpha.max(value);
