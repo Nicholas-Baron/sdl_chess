@@ -70,10 +70,17 @@ pub fn best_move(board: &Board) -> ChessMove {
 }
 
 fn score_for(board: Board) -> ScoreType {
-    // First, count the number of possible moves
-    let possible_move_count = MoveGen::new_legal(&board).count();
+    // First, count the number of possible moves for the AI (maximize)
+    let possible_move_count = MoveGen::new_legal(&board)
+        .filter_map(|chess_move| {
+            let src_square = chess_move.get_source();
+            board.color_on(src_square)
+        })
+        .filter(|&color| color == AI_SIDE)
+        .count();
 
-    // Then, count the number of AI and player pieces
+    // Then, count the AI and player's points
+    // Maximize AI points, minimize player points
     let pieces_on_board: Vec<_> = chess::ALL_SQUARES
         .iter()
         .filter_map(|square| {
