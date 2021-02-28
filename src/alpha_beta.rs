@@ -1,4 +1,4 @@
-use chess::{Board, BoardStatus, ChessMove, Color, MoveGen};
+use chess::{Board, BoardStatus, ChessMove, Color, MoveGen, Piece};
 
 use rayon::prelude::*;
 
@@ -16,6 +16,16 @@ fn min_score() -> ScoreType {
 
 fn max_score() -> ScoreType {
     ScoreType::MAX
+}
+
+fn points_for_piece(piece: Piece) -> ScoreType {
+    match piece {
+        Piece::Pawn => 1,
+        Piece::Knight | Piece::Bishop => 3,
+        Piece::Rook => 5,
+        Piece::Queen => 9,
+        Piece::King => 200,
+    }
 }
 
 pub fn best_move(board: &Board) -> ChessMove {
@@ -64,7 +74,6 @@ fn score_for(board: Board) -> ScoreType {
     let possible_move_count = MoveGen::new_legal(&board).count();
 
     // Then, count the number of AI and player pieces
-
     let pieces_on_board: Vec<_> = chess::ALL_SQUARES
         .iter()
         .filter_map(|square| {
@@ -74,22 +83,20 @@ fn score_for(board: Board) -> ScoreType {
         })
         .collect();
 
-    let ai_count = pieces_on_board
+    let ai_points: ScoreType = pieces_on_board
         .iter()
         .filter(|(_, color)| *color == AI_SIDE)
-        .count();
+        .map(|(piece, _)| points_for_piece(*piece))
+        .sum();
+
+    let player_points: ScoreType = pieces_on_board
+        .iter()
+        .filter(|(_, color)| *color != AI_SIDE)
+        .map(|(piece, _)| points_for_piece(*piece))
+        .sum();
 
     use std::convert::TryFrom;
-
-    let player_count = ScoreType::try_from(
-        pieces_on_board
-            .iter()
-            .filter(|(_, color)| *color != AI_SIDE)
-            .count(),
-    )
-    .unwrap();
-
-    ScoreType::try_from(possible_move_count + ai_count).unwrap() - player_count
+    ScoreType::try_from(possible_move_count).unwrap() + ai_points - player_points
 }
 
 fn alpha_beta(
