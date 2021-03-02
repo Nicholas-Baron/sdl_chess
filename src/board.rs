@@ -11,7 +11,7 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use crate::{
-    alpha_beta::{self, AIState},
+    ai::{self, AIState},
     drawable::{Drawable, Renderer},
     sprite::Sprite,
     utils,
@@ -128,7 +128,7 @@ impl<'a> ChessBoard<'a> {
     }
 
     fn ai_selection(board: Board, ai_state: AIState, sender: Sender<(ChessMove, AIState)>) {
-        if let Err(e) = sender.send(alpha_beta::best_move(board, ai_state)) {
+        if let Err(e) = sender.send(ai::best_move(board, ai_state)) {
             println!("{}", e);
         }
     }
@@ -164,7 +164,7 @@ impl<'a> ChessBoard<'a> {
             self.selected_square = square;
             if let Some(square) = square {
                 println!("Selected {}", square);
-                if self.board.color_on(square) == Some(alpha_beta::AI_SIDE) {
+                if self.board.color_on(square) == Some(ai::AI_SIDE) {
                     self.try_resolve_ai();
                     self.selected_square = None;
                 }
@@ -181,7 +181,7 @@ impl<'a> ChessBoard<'a> {
     }
 
     pub fn is_player_winner(&self) -> bool {
-        self.status() == BoardStatus::Checkmate && self.board.side_to_move() == alpha_beta::AI_SIDE
+        self.status() == BoardStatus::Checkmate && self.board.side_to_move() == ai::AI_SIDE
     }
 
     /// The board size in pixels

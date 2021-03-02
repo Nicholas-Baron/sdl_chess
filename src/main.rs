@@ -4,7 +4,7 @@ use sdl2::image::InitFlag;
 
 use std::{thread, time::Duration};
 
-mod alpha_beta;
+mod ai;
 
 mod board;
 use board::ChessBoard;
