@@ -1,7 +1,7 @@
-use chess::{Board, BoardStatus, ChessMove, Color, File, MoveGen, Rank, Square, NUM_FILES};
+use chess::{Board, BoardStatus, ChessMove, File, MoveGen, Rank, Square, NUM_FILES};
 
 use sdl2::{
-    pixels,
+    pixels::Color,
     rect::{Point, Rect},
 };
 
@@ -266,8 +266,8 @@ impl Drawable for ChessBoard<'_> {
 
             if let Some(piece) = self.board.piece_on(square) {
                 let color = self.board.color_on(square).unwrap();
+                use chess::Color::*;
                 use chess::Piece::*;
-                use Color::*;
                 match (piece, color) {
                     (Pawn, Black) => self.sprites[2].draw_on(dest, rect)?,
                     (Pawn, White) => self.sprites[3].draw_on(dest, rect)?,
@@ -284,23 +284,25 @@ impl Drawable for ChessBoard<'_> {
                 }
             }
 
-            if self
+            let is_selected_square = self
                 .selected_square
                 .map(|val| val == square)
-                .unwrap_or(false)
-            {
-                // Something needs to be highlighted
-                let magenta = pixels::Color::RGB(255, 0, 255);
-                dest.set_draw_color(magenta);
-                dest.draw_rect(rect)?;
-            }
+                .unwrap_or(false);
 
-            if selected_moves
+            let is_possible_move = selected_moves
                 .iter()
-                .any(|chess_move| chess_move.get_dest() == square)
-            {
-                let green = pixels::Color::RGB(0, 250, 0);
-                dest.set_draw_color(green);
+                .any(|chess_move| chess_move.get_dest() == square);
+
+            let highlight_color = if is_selected_square {
+                Some(Color::MAGENTA)
+            } else if is_possible_move {
+                Some(Color::GREEN)
+            } else {
+                None
+            };
+
+            if let Some(color) = highlight_color {
+                dest.set_draw_color(color);
                 dest.draw_rect(rect)?;
             }
         }
