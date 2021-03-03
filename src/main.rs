@@ -62,6 +62,15 @@ fn main() {
                         let in_board = Point::new(x - board_center.x(), board_center.y() - y);
                         board.select(ChessBoard::tile_coord(in_board));
                     }
+                    Event::KeyDown {
+                        keycode: Some(key), ..
+                    } => match key {
+                        Keycode::Left => board_center = board_center.offset(-5, 0),
+                        Keycode::Right => board_center = board_center.offset(5, 0),
+                        Keycode::Up => board_center = board_center.offset(0, -5),
+                        Keycode::Down => board_center = board_center.offset(0, 5),
+                        _ => {}
+                    },
                     _ => {}
                 }
             }
