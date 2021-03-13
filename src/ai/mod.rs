@@ -31,32 +31,39 @@ const fn points_for_piece(piece: Piece) -> ScoreType {
     }
 }
 
-pub fn best_move(board: Board, mut ai_state: AIState) -> (ChessMove, AIState) {
-    assert_eq!(board.side_to_move(), chess::Color::Black);
+fn children_of(board: &Board) -> Vec<(ChessMove, Board)> {
+    MoveGen::new_legal(board)
+        .map(|chess_move| (chess_move, board.make_move_new(chess_move)))
+        .collect()
+}
+
+pub fn best_move(board: Board, ai_state: &AIState) -> ChessMove {
+    assert_eq!(board.side_to_move(), AI_SIDE);
+    println!("Starting timer");
     let start_compute = Instant::now();
 
-    let current_state = ai_state.find(board).unwrap();
-    // We can strip away all the information about the given AI State, as we will not need it.
-    let children = current_state.into_children();
+    let children = children_of(&board);
+    println!("Got {} children for current board", children.len());
 
     assert!(!children.is_empty());
 
     // If there is a single move, no need to compute the best possible move
     if children.len() == 1 {
-        return children.first().unwrap().clone();
+        return children.first().unwrap().0;
     }
 
     let moves: Vec<_> = children
         .into_par_iter()
-        .map(|(chess_move, mut ai_state)| {
+        .map(|(chess_move, child_board)| {
             let start = Instant::now();
-            let (score, ai_state) = ai_state.alpha_beta(MAX_DEPTH, min_score(), max_score());
+            println!("Starting alpha_beta for {}", chess_move);
+            let score = ai_state.alpha_beta(child_board, MAX_DEPTH, min_score(), max_score());
             println!(
                 "Analysis of {} took {:?}",
                 chess_move,
                 Instant::now().duration_since(start)
             );
-            (score, chess_move, ai_state.clone())
+            (score, chess_move)
         })
         .collect();
 
@@ -65,15 +72,12 @@ pub fn best_move(board: Board, mut ai_state: AIState) -> (ChessMove, AIState) {
         Instant::now().duration_since(start_compute)
     );
 
-    let (_score, ai_move, ai_state) = moves
-        .into_iter()
-        .max_by_key(|(score, _, _)| *score)
-        .unwrap();
+    let (_score, ai_move) = moves.into_iter().max_by_key(|(score, _)| *score).unwrap();
 
-    (ai_move, ai_state)
+    ai_move
 }
 
-fn score_for(board: Board) -> ScoreType {
+fn score_for(board: &Board) -> ScoreType {
     // First, count the number of possible moves for the AI (maximize)
     let possible_move_count = MoveGen::new_legal(&board)
         .filter_map(|chess_move| {
