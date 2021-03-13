@@ -22,6 +22,10 @@ impl AIState {
             .collect()
     }
 
+    pub(super) fn known_board_states(&self) -> usize {
+        self.rankings.len()
+    }
+
     pub(super) fn alpha_beta(
         &self,
         board: Board,

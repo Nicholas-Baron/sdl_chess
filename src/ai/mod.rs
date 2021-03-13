@@ -72,6 +72,7 @@ pub fn best_move(board: Board, ai_state: &AIState) -> ChessMove {
         Instant::now().duration_since(start_compute)
     );
 
+    println!("{}", ai_state.known_board_states());
     let (_score, ai_move) = moves.into_iter().max_by_key(|(score, _)| *score).unwrap();
 
     ai_move
