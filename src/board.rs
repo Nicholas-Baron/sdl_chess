@@ -14,6 +14,7 @@ use crate::{
     ai::{self, AIState},
     drawable::{Drawable, Renderer},
     sprite::Sprite,
+    twc::{self, TwoWayChannel},
     utils,
 };
 

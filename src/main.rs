@@ -16,6 +16,8 @@ use sdl_handle::SDLHandle;
 
 mod sprite;
 
+mod twc;
+
 mod utils;
 
 fn initial_board_center(center: (u32, u32)) -> Point {
