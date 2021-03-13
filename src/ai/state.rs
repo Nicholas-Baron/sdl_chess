@@ -6,7 +6,7 @@ use dashmap::DashMap as Map;
 
 #[derive(Default)]
 pub struct AIState {
-    rankings: Map<Board, ScoreType>,
+    rankings: Map<String, ScoreType>,
 }
 
 impl AIState {
@@ -14,8 +14,9 @@ impl AIState {
         MoveGen::new_legal(&board)
             .map(|chess_move| {
                 let new_board = board.make_move_new(chess_move);
-                if !self.rankings.contains_key(&new_board) {
-                    self.rankings.insert(new_board, score_for(&new_board));
+                let board_str = new_board.to_string();
+                if !self.rankings.contains_key(&board_str) {
+                    self.rankings.insert(board_str, score_for(&new_board));
                 }
                 (chess_move, new_board)
             })
@@ -45,7 +46,7 @@ impl AIState {
                         min_score()
                     }
                 }
-                BoardStatus::Ongoing => *self.rankings.get(&board).unwrap(),
+                BoardStatus::Ongoing => *self.rankings.get(&board.to_string()).unwrap(),
             };
         }
 
@@ -54,7 +55,7 @@ impl AIState {
 
         for (_, child) in self.children_of(&board).into_iter() {
             let next_value = self.alpha_beta(child, depth - 1, alpha, beta);
-            self.rankings.insert(child, next_value);
+            self.rankings.insert(child.to_string(), next_value);
             if maximize {
                 if value < next_value {
                     value = next_value;
