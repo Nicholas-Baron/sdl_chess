@@ -1,10 +1,18 @@
-use super::{max_score, min_score, score_for, ScoreType, AI_SIDE};
+use super::{score_for, ScoreType, AI_SIDE};
 
 use chess::{Board, BoardStatus, ChessMove, MoveGen};
 
 use std::collections::VecDeque;
 
 type AIChildren = Vec<(ChessMove, AIState)>;
+
+const fn min_score() -> ScoreType {
+    ScoreType::MIN
+}
+
+const fn max_score() -> ScoreType {
+    ScoreType::MAX
+}
 
 #[derive(Clone)]
 pub struct AIState {
@@ -72,7 +80,14 @@ impl AIState {
         None
     }
 
-    pub(super) fn alpha_beta(
+    pub(super) fn alpha_beta(&mut self, depth: usize) -> (ScoreType, AIState) {
+        let (score, ai_state) = self.alpha_beta_inner(depth, min_score(), max_score());
+        let ai_state = ai_state.clone();
+        self.score = score;
+        (score, ai_state)
+    }
+
+    fn alpha_beta_inner(
         &mut self,
         depth: usize,
         mut alpha: ScoreType,
@@ -102,7 +117,7 @@ impl AIState {
         let mut result_state = None;
 
         for (_, child) in self.children().iter_mut() {
-            let (next_value, ai_state) = child.alpha_beta(depth - 1, alpha, beta);
+            let (next_value, ai_state) = child.alpha_beta_inner(depth - 1, alpha, beta);
             if maximize {
                 if value < next_value {
                     value = next_value;

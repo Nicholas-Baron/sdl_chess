@@ -13,14 +13,6 @@ type ScoreType = isize;
 
 const MAX_DEPTH: usize = 6;
 
-const fn min_score() -> ScoreType {
-    ScoreType::MIN
-}
-
-const fn max_score() -> ScoreType {
-    ScoreType::MAX
-}
-
 const fn points_for_piece(piece: Piece) -> ScoreType {
     match piece {
         Piece::Pawn => 1,
@@ -50,13 +42,13 @@ pub fn best_move(board: Board, mut ai_state: AIState) -> (ChessMove, AIState) {
         .into_par_iter()
         .map(|(chess_move, mut ai_state)| {
             let start = Instant::now();
-            let (score, ai_state) = ai_state.alpha_beta(MAX_DEPTH, min_score(), max_score());
+            let (score, ai_state) = ai_state.alpha_beta(MAX_DEPTH);
             println!(
                 "Analysis of {} took {:?}",
                 chess_move,
                 Instant::now().duration_since(start)
             );
-            (score, chess_move, ai_state.clone())
+            (score, chess_move, ai_state)
         })
         .collect();
 
