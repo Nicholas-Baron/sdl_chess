@@ -24,8 +24,8 @@ impl AIState {
         }
     }
 
-    fn compute_children(board: &Board) -> Vec<(ChessMove, AIState)> {
-        MoveGen::new_legal(&board)
+    fn compute_children(board: &Board) -> AIChildren {
+        MoveGen::new_legal(board)
             .map(|chess_move| {
                 (
                     chess_move,
@@ -91,7 +91,7 @@ impl AIState {
                             min_score()
                         }
                     }
-                    BoardStatus::Ongoing => score_for(self.board),
+                    BoardStatus::Ongoing => self.score,
                 },
                 self,
             );
@@ -107,20 +107,21 @@ impl AIState {
                 if value < next_value {
                     value = next_value;
                     alpha = alpha.max(value);
-                    if alpha >= beta {
-                        return (value, ai_state);
-                    }
                     result_state = Some(ai_state);
+                    if alpha >= beta {
+                        break;
+                    }
                 }
             } else if value > next_value {
                 value = next_value;
                 beta = beta.min(value);
-                if beta <= alpha {
-                    return (value, ai_state);
-                }
                 result_state = Some(ai_state);
+                if beta <= alpha {
+                    break;
+                }
             }
         }
+
         (value, result_state.unwrap())
     }
 }

@@ -33,10 +33,7 @@ impl<'a> ChessBoard<'a> {
         chess::ALL_SQUARES
             .iter()
             .map(|&square| (square, chess::BoardBuilder::from(Board::default())[square]))
-            .filter_map(|(square, piece)| match piece {
-                None => None,
-                Some((piece, color)) => Some((square, color, piece)),
-            })
+            .filter_map(|(square, piece)| piece.map(|(piece, color)| (square, color, piece)))
             .for_each(|(square, color, piece)| {
                 println!(
                     "{} (aka {}) has {:?} {:?}",
