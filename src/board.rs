@@ -6,12 +6,9 @@ use sdl2::{
 };
 
 use std::convert::{TryFrom, TryInto};
-use std::sync::mpsc::{self, Receiver, Sender};
-use std::thread::{self, JoinHandle};
-use std::time::Duration;
 
 use crate::{
-    ai::{self, AIState},
+    ai::AIState,
     drawable::{Drawable, Renderer},
     sprite::Sprite,
     utils,
@@ -21,9 +18,8 @@ pub struct ChessBoard<'a> {
     board: Board,
     sprites: Vec<Sprite<'a>>,
     selected_square: Option<Square>,
-    ai_executor: Option<JoinHandle<()>>,
-    ai_move_queue: Option<Receiver<(ChessMove, AIState)>>,
     ai_state: AIState,
+    player_side: chess::Color,
 }
 
 const TILE_SIZE: u8 = 32;
@@ -47,11 +43,10 @@ impl<'a> ChessBoard<'a> {
         let board = Default::default();
         Self {
             sprites,
-            ai_state: AIState::analyze_board(board),
+            ai_state: AIState::default(),
             board,
-            ai_executor: Default::default(),
             selected_square: Default::default(),
-            ai_move_queue: Default::default(),
+            player_side: chess::Color::White,
         }
     }
 
@@ -81,78 +76,22 @@ impl<'a> ChessBoard<'a> {
         }
     }
 
-    fn apply_ai_move(&mut self, ai_move: ChessMove) {
-        println!("AI is doing {}", ai_move);
-        self.board = self.board.make_move_new(ai_move);
-        self.ai_move_queue = None;
-    }
-
-    /// Block until the AI finishes computing its move
-    pub fn resolve_ai(&mut self) {
-        if let Some(ai_move_queue) = self.ai_move_queue.take() {
-            println!("Resolving the AI...");
-            let (ai_move, ai_state) = match ai_move_queue.recv() {
-                Ok(val) => val,
-                Err(e) => {
-                    println!("{}", e);
-                    return;
-                }
-            };
-            self.apply_ai_move(ai_move);
-            self.ai_state = ai_state;
-        }
-    }
-
-    /// If the AI has finished computing its move, apply it.
-    /// Otherwise, do not block.
-    pub fn try_resolve_ai(&mut self) {
-        if let Some(ai_move_queue) = self.ai_move_queue.as_ref() {
-            use mpsc::RecvTimeoutError::*;
-            let (ai_move, ai_state) =
-                match ai_move_queue.recv_timeout(Duration::from_millis(1_000 / 60)) {
-                    Ok(val) => val,
-                    Err(e) => match e {
-                        Timeout => return,
-                        other => {
-                            println!("{}", other);
-                            return;
-                        }
-                    },
-                };
-            self.apply_ai_move(ai_move);
-            self.ai_state = ai_state;
-        }
-    }
-
-    fn ai_selection(board: Board, ai_state: AIState, sender: Sender<(ChessMove, AIState)>) {
-        if let Err(e) = sender.send(ai::best_move(board, ai_state)) {
-            println!("{}", e);
-        }
-    }
-
     pub fn select(&mut self, square: Option<Square>) {
-        self.try_resolve_ai();
         if let (Some(original), Some(new_selection)) = (self.selected_square, square) {
             let possible_moves = self.moves_from(original);
             if let Some(chess_move) = possible_moves
                 .iter()
                 .find(|chess_move| chess_move.get_dest() == new_selection)
             {
-                self.resolve_ai();
-
                 println!("Player is doing {}", chess_move);
                 let new_board = self.board.make_move_new(*chess_move);
                 self.board = new_board;
                 self.selected_square = None;
 
                 println!("AI is calculating move");
-                let (send, recv) = mpsc::channel();
-                self.ai_move_queue = Some(recv);
-                let board = self.board;
-                let ai_state = self.ai_state.clone();
-                self.ai_executor = Some(thread::spawn(move || {
-                    Self::ai_selection(board, ai_state, send)
-                }));
+                let ai_move = self.ai_state.best_move(self.board, !self.player_side);
+                println!("AI plays {}", ai_move);
+                self.board = self.board.make_move_new(ai_move);
                 return;
             }
         }
@@ -161,10 +100,6 @@ impl<'a> ChessBoard<'a> {
             self.selected_square = square;
             if let Some(square) = square {
                 println!("Selected {}", square);
-                if self.board.color_on(square) == Some(ai::AI_SIDE) {
-                    self.try_resolve_ai();
-                    self.selected_square = None;
-                }
             }
         }
     }
@@ -178,7 +113,7 @@ impl<'a> ChessBoard<'a> {
     }
 
     pub fn is_player_winner(&self) -> bool {
-        self.status() == BoardStatus::Checkmate && self.board.side_to_move() == ai::AI_SIDE
+        self.status() == BoardStatus::Checkmate && self.board.side_to_move() == self.player_side
     }
 
     /// The board size in pixels
@@ -208,27 +143,6 @@ impl<'a> ChessBoard<'a> {
         MoveGen::new_legal(&self.board)
             .filter(|chess_move| chess_move.get_source() == source)
             .collect()
-    }
-}
-
-impl Clone for ChessBoard<'_> {
-    fn clone(&self) -> Self {
-        let Self {
-            board,
-            selected_square,
-            sprites,
-            ai_state,
-            ..
-        } = self;
-
-        Self {
-            board: *board,
-            ai_executor: None,
-            ai_move_queue: None,
-            selected_square: *selected_square,
-            sprites: Vec::clone(sprites),
-            ai_state: ai_state.clone(),
-        }
     }
 }
 

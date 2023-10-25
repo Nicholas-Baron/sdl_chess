@@ -25,9 +25,9 @@ fn initial_board_center(center: (u32, u32)) -> Point {
     }))
 }
 
-fn draw_board(sdl_handle: &mut SDLHandle, board: ChessBoard, board_center: Point) {
+fn draw_board(sdl_handle: &mut SDLHandle, board: &ChessBoard, board_center: Point) {
     sdl_handle.clear();
-    sdl_handle.draw_at(board_center, &board).unwrap();
+    sdl_handle.draw_at(board_center, board).unwrap();
     sdl_handle.present();
 }
 
@@ -75,14 +75,14 @@ fn main() {
                 }
             }
 
-            draw_board(&mut sdl_handle, board.clone(), board_center);
+            draw_board(&mut sdl_handle, &board, board_center);
 
-            if board.is_ongoing() {
-                board.try_resolve_ai();
-            } else if board.is_player_winner() {
-                println!("Player won");
-            } else {
-                println!("Stalemate or AI won");
+            if !board.is_ongoing() {
+                if board.is_player_winner() {
+                    println!("Player won");
+                } else {
+                    println!("Stalemate or AI won");
+                }
             }
 
             thread::sleep(Duration::new(0, 1_000_000_000 / 60));

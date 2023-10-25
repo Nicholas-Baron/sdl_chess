@@ -1,17 +1,11 @@
-use chess::{Board, ChessMove, Color, MoveGen, Piece};
+use std::collections::HashMap;
+use std::convert::TryFrom;
 
-use rayon::prelude::*;
-
-use std::time::Instant;
-
-mod state;
-pub use state::AIState;
-
-pub const AI_SIDE: Color = Color::Black;
+use chess::{Board, BoardStatus, ChessMove, Color, MoveGen, Piece};
 
 type ScoreType = isize;
 
-const MAX_DEPTH: usize = 6;
+const DEPTH: u8 = 4;
 
 const fn points_for_piece(piece: Piece) -> ScoreType {
     match piece {
@@ -23,81 +17,150 @@ const fn points_for_piece(piece: Piece) -> ScoreType {
     }
 }
 
-pub fn best_move(board: Board, mut ai_state: AIState) -> (ChessMove, AIState) {
-    assert_eq!(board.side_to_move(), chess::Color::Black);
-    let start_compute = Instant::now();
+fn guess_score(player: Color, board: Board) -> ScoreType {
+    let mut score = 0;
 
-    let current_state = ai_state.find(board).unwrap();
-    // We can strip away all the information about the given AI State, as we will not need it.
-    let children = current_state.into_children();
-
-    assert!(!children.is_empty());
-
-    // If there is a single move, no need to compute the best possible move
-    if children.len() == 1 {
-        return children.first().unwrap().clone();
+    // Pieces on board
+    for piece in [
+        Piece::Pawn,
+        Piece::Knight,
+        Piece::Bishop,
+        Piece::Rook,
+        Piece::Queen,
+        Piece::King,
+    ] {
+        let pieces_of_player = board.color_combined(player) & board.pieces(piece);
+        let pieces_of_opponent = board.color_combined(!player) & board.pieces(piece);
+        score += points_for_piece(piece) * ScoreType::try_from(pieces_of_player.popcnt()).unwrap();
+        score -=
+            points_for_piece(piece) * ScoreType::try_from(pieces_of_opponent.popcnt()).unwrap();
     }
 
-    let moves: Vec<_> = children
-        .into_par_iter()
-        .map(|(chess_move, mut ai_state)| {
-            let start = Instant::now();
-            let (score, ai_state) = ai_state.alpha_beta(MAX_DEPTH);
-            println!(
-                "Analysis of {} took {:?}",
-                chess_move,
-                Instant::now().duration_since(start)
-            );
-            (score, chess_move, ai_state)
-        })
-        .collect();
+    // Giving check to king
+    let checkers_value = ScoreType::try_from(board.checkers().popcnt()).unwrap() * 10;
 
-    println!(
-        "Took {:?} to compute all moves",
-        Instant::now().duration_since(start_compute)
-    );
+    // Pinning something to the king
+    let pin_value = ScoreType::try_from(board.pinned().popcnt()).unwrap() * 5;
 
-    let (_score, ai_move, ai_state) = moves
-        .into_iter()
-        .max_by_key(|(score, _, _)| *score)
-        .unwrap();
+    if player != board.side_to_move() {
+        score += checkers_value + pin_value;
+    }
 
-    (ai_move, ai_state)
+    score
 }
 
-fn score_for(board: Board) -> ScoreType {
-    // First, count the number of possible moves for the AI (maximize)
-    let possible_move_count = MoveGen::new_legal(&board)
-        .filter_map(|chess_move| {
-            let src_square = chess_move.get_source();
-            board.color_on(src_square)
-        })
-        .filter(|&color| color == AI_SIDE)
-        .count();
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct CacheEntry {
+    chess_move: ChessMove,
+    score: ScoreType,
+    color: Color,
+    eval_depth: u8,
+}
 
-    // Then, count the AI and player's points
-    // Maximize AI points, minimize player points
-    let pieces_on_board: Vec<_> = chess::ALL_SQUARES
-        .iter()
-        .filter_map(|square| {
-            board
-                .piece_on(*square)
-                .map(|piece| (piece, board.color_on(*square).unwrap()))
-        })
-        .collect();
+impl CacheEntry {
+    fn update_if_better(&mut self, new_entry: Self) {
+        if *self == new_entry {
+            return;
+        }
 
-    let ai_points: ScoreType = pieces_on_board
-        .iter()
-        .filter(|(_, color)| *color == AI_SIDE)
-        .map(|(piece, _)| points_for_piece(*piece))
-        .sum();
+        // Always pick the deeper eval
+        match self.eval_depth.cmp(&new_entry.eval_depth) {
+            std::cmp::Ordering::Less => {
+                *self = new_entry;
+                return;
+            }
+            std::cmp::Ordering::Equal => {}
+            std::cmp::Ordering::Greater => return,
+        }
 
-    let player_points: ScoreType = pieces_on_board
-        .iter()
-        .filter(|(_, color)| *color != AI_SIDE)
-        .map(|(piece, _)| points_for_piece(*piece))
-        .sum();
+        assert_eq!(self.color, new_entry.color);
 
-    use std::convert::TryFrom;
-    ScoreType::try_from(possible_move_count).unwrap() + ai_points - player_points
+        if self.score.abs() < new_entry.score.abs() {
+            *self = new_entry;
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct AIState {
+    /// Cache scores and the color that the score is used for
+    score_cache: HashMap<String, CacheEntry>,
+}
+
+impl AIState {
+    pub fn best_move(&mut self, board: Board, player: Color) -> ChessMove {
+        let chess_move = self
+            .alpha_beta(board, DEPTH, ScoreType::MIN + 1, ScoreType::MAX, player)
+            .0
+            .unwrap();
+        println!("Evaluated {} positions", self.score_cache.len());
+        chess_move
+    }
+
+    fn alpha_beta(
+        &mut self,
+        board: Board,
+        depth: u8,
+        mut alpha: ScoreType,
+        beta: ScoreType,
+        player: Color,
+    ) -> (Option<ChessMove>, ScoreType) {
+        if depth == 0 || board.status() != BoardStatus::Ongoing {
+            return match (board.status(), self.score_cache.get(&board.to_string())) {
+                (BoardStatus::Stalemate, _) => (None, 0),
+                (BoardStatus::Checkmate, _) => (None, ScoreType::MIN + 1),
+                (BoardStatus::Ongoing, Some(entry)) => (Some(entry.chess_move), entry.score),
+                (BoardStatus::Ongoing, None) => (None, guess_score(player, board)),
+            };
+        }
+
+        let mut moves: Vec<_> = MoveGen::new_legal(&board).collect();
+
+        moves
+            .sort_by_cached_key(|chess_move| guess_score(player, board.make_move_new(*chess_move)));
+
+        let mut best_so_far: Option<ChessMove> = None;
+        for chess_move in moves {
+            let next_board = board.make_move_new(chess_move);
+            let score = -self
+                .alpha_beta(next_board, depth - 1, -beta, -alpha, !player)
+                .1;
+            if score >= beta {
+                if let Some(best_so_far) = best_so_far {
+                    self.update_cache(board.to_string(), best_so_far, beta, player, depth);
+                }
+                return (best_so_far, beta);
+            }
+            if score > alpha {
+                alpha = score;
+                best_so_far = Some(chess_move);
+            }
+        }
+
+        if let Some(best_so_far) = best_so_far {
+            self.update_cache(board.to_string(), best_so_far, alpha, player, depth);
+        }
+        (best_so_far, alpha)
+    }
+
+    fn update_cache(
+        &mut self,
+        board_string: String,
+        chess_move: ChessMove,
+        score: ScoreType,
+        player: Color,
+        eval_depth: u8,
+    ) {
+        let new_cache_entry = CacheEntry {
+            score,
+            color: player,
+            eval_depth,
+            chess_move,
+        };
+
+        self.score_cache
+            .entry(board_string)
+            .and_modify(|entry| entry.update_if_better(new_cache_entry.clone()))
+            .or_insert(new_cache_entry);
+    }
 }

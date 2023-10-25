@@ -94,6 +94,7 @@ impl AIState {
         mut beta: ScoreType,
     ) -> (ScoreType, &mut AIState) {
         if depth == 0 || self.board.status() != BoardStatus::Ongoing {
+            println!("Terminating at {} depth", depth);
             return (
                 match self.board.status() {
                     BoardStatus::Stalemate => 0,
